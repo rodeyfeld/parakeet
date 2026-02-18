@@ -1,5 +1,5 @@
 defmodule Parakeet.Game.Deck do
-  alias Parakeet.Game.{Card, CardStack}
+  alias Parakeet.Game.{Card, CardStack, Player}
   @card_definitions [
     {:ace, 14},
     {:king, 13},
@@ -16,6 +16,16 @@ defmodule Parakeet.Game.Deck do
           %Card{face: face, suit: suit, value: value}
         end
     %CardStack{cards: cards}
+  end
+
+  def deal(players, %CardStack{cards: []}, _idx), do: players
+  def deal(players, deck, idx) do
+    {top, deck} = CardStack.pop_top(deck)
+    players = List.update_at(players, idx, fn %Player{} = player ->
+      %Player{player | hand: CardStack.push_bottom(player.hand, top)}
+    end)
+
+    deal(players, deck, rem(idx + 1, length(players)))
   end
 
 end
