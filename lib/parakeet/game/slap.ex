@@ -24,16 +24,17 @@ defmodule Parakeet.Game.Slap do
   defp sandwich?(_), do: false
 
   defp three_in_order?([top, second, third | _]) do
-    ascending = Card.get_value_up(third) == second.value and Card.get_value_up(second) == top.value
-    descending = Card.get_value_down(third) == second.value and Card.get_value_down(second) == top.value
+    ascending =
+      Card.get_value_up(third) == second.value and Card.get_value_up(second) == top.value
+
+    descending =
+      Card.get_value_down(third) == second.value and Card.get_value_down(second) == top.value
+
     ascending or descending
   end
+
   defp three_in_order?(_), do: false
 
   defp adds_to_ten?([top, second | _]), do: top.value + second.value == 10
   defp adds_to_ten?(_), do: false
-
-
-
-
 end

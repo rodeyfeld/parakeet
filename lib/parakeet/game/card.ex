@@ -1,17 +1,14 @@
 defmodule Parakeet.Game.Card do
-
   @type face :: :number | :jack | :queen | :king | :ace
   @type suit :: :hearts | :diamonds | :spades | :clubs
 
   @type t :: %__MODULE__{face: face(), suit: suit(), value: integer()}
-
 
   @derive Jason.Encoder
   defstruct [:face, :suit, :value]
 
   @faces [:ace, :king, :queen, :jack]
   def face?(card), do: card.face in @faces
-
 
   def get_value_down(%__MODULE__{value: 2}), do: 14
   def get_value_down(%__MODULE__{value: value}), do: value - 1
