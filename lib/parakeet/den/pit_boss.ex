@@ -21,4 +21,11 @@ defmodule Parakeet.Den.PitBoss do
       [] -> :not_found
     end
   end
+
+  def list_tables do
+    DynamicSupervisor.which_children(__MODULE__)
+      |> Enum.map(fn {_, pid, _, _} ->
+      Parakeet.Den.Table.get_state(pid)
+    end)
+  end
 end
