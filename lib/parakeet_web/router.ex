@@ -18,7 +18,8 @@ defmodule ParakeetWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
-    live "/game", GameLive
+    live "/den", DenLive
+    live "/game/:code", GameLive
   end
 
   # Other scopes may use custom stacks.
