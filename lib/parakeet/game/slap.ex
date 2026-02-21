@@ -2,8 +2,8 @@ defmodule Parakeet.Game.Slap do
   alias Parakeet.Game.{CardStack, Card}
 
   @type slap_type :: :no_slap | :three_in_order | :queen_king | :add_to_ten | :doubles | :sandwich
-  @spec valid_slap(CardStack.t()) :: slap_type()
-  def valid_slap(%CardStack{cards: cards}) do
+  @spec slap_type(CardStack.t()) :: slap_type()
+  def slap_type(%CardStack{cards: cards}) do
     cond do
       doubles?(cards) -> :doubles
       queen_king?(cards) -> :queen_king

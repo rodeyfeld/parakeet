@@ -20,5 +20,27 @@ defmodule Parakeet.Game.CardStack do
   def pop_top(%__MODULE__{cards: []}), do: :empty
   def pop_top(%__MODULE__{cards: [top | rest]}), do: {top, %__MODULE__{cards: rest}}
 
-  def clear(%__MODULE__{cards: cards}), do: {cards, %__MODULE__{cards: []}}
+  def pop_top_n(stack, 0), do: {%__MODULE__{cards: []}, stack}
+
+  def pop_top_n(stack, n) do
+    {card, stack} = pop_top(stack)
+    {%__MODULE__{cards: popped}, stack} = pop_top_n(stack, n - 1)
+    {%__MODULE__{cards: [card | popped]}, stack}
+  end
+
+  def push_top_n(stack, %__MODULE__{cards: []}), do: stack
+
+  def push_top_n(stack, %__MODULE__{cards: [card | rest]}) do
+    stack = push_top(stack, card)
+    push_top_n(stack, %__MODULE__{cards: rest})
+  end
+
+  def push_bottom_n(stack, %__MODULE__{cards: []}), do: stack
+
+  def push_bottom_n(stack, %__MODULE__{cards: [card | rest]}) do
+    stack = push_bottom(stack, card)
+    push_bottom_n(stack, %__MODULE__{cards: rest})
+  end
+
+  def clear(%__MODULE__{}= stack), do: {stack, %__MODULE__{cards: []}}
 end
