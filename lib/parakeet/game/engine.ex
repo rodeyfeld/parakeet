@@ -3,6 +3,8 @@ defmodule Parakeet.Game.Engine do
   require Logger
   use GenServer
 
+  @shutdown_delay_ms 120_000
+
   defstruct [
     :players,
     :pile,
@@ -10,7 +12,9 @@ defmodule Parakeet.Game.Engine do
     :challenger_idx,
     :chances,
     :challenge_card,
-    :current_player_idx
+    :current_player_idx,
+    :winner,
+    status: :running
   ]
 
   def start_link(player_names) do
@@ -22,6 +26,10 @@ defmodule Parakeet.Game.Engine do
   def slap(pid, player_idx), do: GenServer.call(pid, {:slap, player_idx})
 
   @impl true
+  def handle_call(:play_turn, _from, %{status: :finished} = state) do
+    {:reply, state, state}
+  end
+
   def handle_call(:play_turn, _from, state) do
     new_state = handle_turn(state)
     {:reply, new_state, new_state}
@@ -33,9 +41,19 @@ defmodule Parakeet.Game.Engine do
   end
 
   @impl true
+  def handle_call({:slap, _player_idx}, _from, %{status: :finished} = state) do
+    {:reply, state, state}
+  end
+
   def handle_call({:slap, player_idx}, _from, state) do
     new_state = handle_slap(state, player_idx)
     {:reply, new_state, new_state}
+  end
+
+  @impl true
+  def handle_info(:shutdown, state) do
+    Logger.info("Game shutting down after #{@shutdown_delay_ms}ms cooldown")
+    {:stop, :normal, state}
   end
 
   @impl true
@@ -81,7 +99,27 @@ defmodule Parakeet.Game.Engine do
       end)
 
     state = %{state | players: players}
-    %{state | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx)}
+    state = check_game_over(state)
+
+    if state.status == :finished do
+      state
+    else
+      %{state | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx)}
+    end
+  end
+
+  defp check_game_over(state) do
+    alive = Enum.filter(state.players, & &1.alive)
+
+    case alive do
+      [winner] ->
+        Logger.info("Game over! #{winner.name} wins!")
+        Process.send_after(self(), :shutdown, @shutdown_delay_ms)
+        %{state | status: :finished, winner: winner.name}
+
+      _ ->
+        state
+    end
   end
 
   defp handle_challenge_initiate(state, challenge_card) do
@@ -172,7 +210,7 @@ defmodule Parakeet.Game.Engine do
           %Player{p | alive: false}
         end)
 
-      %{state | players: players}
+      check_game_over(%{state | players: players})
     else
       state
     end

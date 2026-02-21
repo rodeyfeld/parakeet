@@ -65,31 +65,47 @@ defmodule ParakeetWeb.GameLive do
         </div>
 
         <div class="space-y-6">
-          <%!-- Controls --%>
-          <div class="flex gap-3 flex-wrap items-center">
-            <%= if @player_idx == @game.current_player_idx do %>
-              <button
-                phx-click="play_turn"
-                id="play-turn-btn"
-                class="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 font-semibold transition-all hover:scale-105 active:scale-95"
-              >
-                Play Card
-              </button>
-            <% else %>
-              <div class="rounded-lg bg-zinc-800 border border-zinc-700 px-5 py-2 text-sm text-zinc-500">
-                Waiting for {Enum.at(@game.players, @game.current_player_idx).name}...
+          <%= if @game.status == :finished do %>
+            <div class="rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-900/30 to-yellow-900/20 p-6 text-center space-y-3">
+              <div class="text-4xl font-black tracking-tight text-amber-300">Game Over</div>
+              <div class="text-xl text-zinc-200">
+                <span class="font-bold text-white">{@game.winner}</span> wins!
               </div>
-            <% end %>
-            <%= if @player_idx != nil and Enum.at(@game.players, @player_idx).alive do %>
-              <button
-                phx-click="slap"
-                id="slap-btn"
-                class="rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 font-semibold transition-all hover:scale-105 active:scale-95"
+              <div class="text-sm text-zinc-500">This game will close in 2 minutes.</div>
+              <.link
+                navigate={~p"/den"}
+                class="inline-block mt-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2.5 font-semibold transition-all"
               >
-                Slap!
-              </button>
-            <% end %>
-          </div>
+                Back to Lobby
+              </.link>
+            </div>
+          <% else %>
+            <%!-- Controls --%>
+            <div class="flex gap-3 flex-wrap items-center">
+              <%= if @player_idx == @game.current_player_idx do %>
+                <button
+                  phx-click="play_turn"
+                  id="play-turn-btn"
+                  class="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 font-semibold transition-all hover:scale-105 active:scale-95"
+                >
+                  Play Card
+                </button>
+              <% else %>
+                <div class="rounded-lg bg-zinc-800 border border-zinc-700 px-5 py-2 text-sm text-zinc-500">
+                  Waiting for {Enum.at(@game.players, @game.current_player_idx).name}...
+                </div>
+              <% end %>
+              <%= if @player_idx != nil and Enum.at(@game.players, @player_idx).alive do %>
+                <button
+                  phx-click="slap"
+                  id="slap-btn"
+                  class="rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 font-semibold transition-all hover:scale-105 active:scale-95"
+                >
+                  Slap!
+                </button>
+              <% end %>
+            </div>
+          <% end %>
 
           <%!-- Game State --%>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
