@@ -42,5 +42,5 @@ defmodule Parakeet.Game.CardStack do
     push_bottom_n(stack, %__MODULE__{cards: rest})
   end
 
-  def clear(%__MODULE__{}= stack), do: {stack, %__MODULE__{cards: []}}
+  def clear(%__MODULE__{} = stack), do: {stack, %__MODULE__{cards: []}}
 end
