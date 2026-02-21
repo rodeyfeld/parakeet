@@ -156,13 +156,14 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_challenge_win(state) do
+    challenger = Enum.at(state.players, state.challenger_idx)
+
     Logger.debug(
-      "handle_challenge_win: player #{state.challenger_idx} wins the pile (#{CardStack.count(state.pile)} cards)"
+      "handle_challenge_win: #{challenger.name} wins the pile (#{CardStack.count(state.pile)} cards) — new round"
     )
 
-    player = Enum.at(state.players, state.challenger_idx)
     {pile_stack, empty_pile} = CardStack.clear(state.pile)
-    new_hand = CardStack.push_bottom_n(player.hand, pile_stack)
+    new_hand = CardStack.push_bottom_n(challenger.hand, pile_stack)
 
     players =
       List.update_at(state.players, state.challenger_idx, fn %Player{} = player ->
@@ -181,13 +182,14 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_slap_success(state, slapper_idx) do
+    slapper = Enum.at(state.players, slapper_idx)
+
     Logger.debug(
-      "handle_slap_success: player #{slapper_idx} slaps and wins the pile (#{CardStack.count(state.pile)} cards)"
+      "handle_slap_success: #{slapper.name} slaps and wins the pile (#{CardStack.count(state.pile)} cards) — new round"
     )
 
-    player = Enum.at(state.players, slapper_idx)
     {pile_stack, empty_pile} = CardStack.clear(state.pile)
-    new_hand = CardStack.push_bottom_n(player.hand, pile_stack)
+    new_hand = CardStack.push_bottom_n(slapper.hand, pile_stack)
 
     players =
       List.update_at(state.players, slapper_idx, fn %Player{} = player ->

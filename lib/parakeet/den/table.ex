@@ -1,29 +1,37 @@
 defmodule Parakeet.Den.Table do
-  alias Parakeet.Game.{Engine}
   require Logger
   use GenServer
 
+  @grace_period_ms 30_000
+
   defstruct [
-    :player_names,
     :name,
     :code,
     :engine_pid,
+    player_names: [],
+    connections: %{}
   ]
 
-  def start_link({player_name, table_name, code}) do
-    GenServer.start_link(__MODULE__, {player_name, table_name, code},
-    name: {:via, Registry, {Parakeet.Den.Registry, code}})
+  def start_link({player_name, table_name, code, liveview_pid}) do
+    GenServer.start_link(__MODULE__, {player_name, table_name, code, liveview_pid},
+      name: {:via, Registry, {Parakeet.Den.Registry, code}}
+    )
   end
 
   @impl true
-  def init({player_name, table_name, code}) do
-    {:ok, create_table(player_name, table_name, code)}
+  def init({player_name, table_name, code, liveview_pid}) do
+    {:ok, create_table(player_name, table_name, code, liveview_pid)}
   end
 
   def get_state(pid), do: GenServer.call(pid, :get_state)
   def start_game(pid), do: GenServer.call(pid, :start_game)
-  def join(pid, player_name), do: GenServer.call(pid, {:join, player_name})
+  def join(pid, player_name, liveview_pid), do: GenServer.call(pid, {:join, player_name, liveview_pid})
+  def rejoin(pid, player_name, liveview_pid), do: GenServer.call(pid, {:rejoin, player_name, liveview_pid})
 
+  @impl true
+  def handle_call(:get_state, _from, state) do
+    {:reply, state, state}
+  end
 
   @impl true
   def handle_call(:start_game, _from, state) do
@@ -32,21 +40,36 @@ defmodule Parakeet.Den.Table do
   end
 
   @impl true
-  def handle_call(:get_state, _from, state) do
-    {:reply, state, state}
-  end
-
-  @impl true
-  def handle_call({:join, player_name}, _from, state) do
-    new_state = join_table(state, player_name)
+  def handle_call({:join, player_name, liveview_pid}, _from, state) do
+    new_state = handle_join(state, player_name, liveview_pid)
     {:reply, new_state, new_state}
   end
 
-  defp create_table(player_name, table_name, code) do
+  @impl true
+  def handle_call({:rejoin, player_name, liveview_pid}, _from, state) do
+    new_state = handle_rejoin(state, player_name, liveview_pid)
+    {:reply, new_state, new_state}
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
+    {:noreply, handle_disconnect(state, ref)}
+  end
+
+  @impl true
+  def handle_info({:evict, player_name}, state) do
+    Logger.debug("Evicting #{player_name} from table #{state.code}")
+    {:noreply, handle_evict(state, player_name)}
+  end
+
+  defp create_table(player_name, table_name, code, liveview_pid) do
+    ref = Process.monitor(liveview_pid)
+
     %__MODULE__{
       player_names: [player_name],
       name: table_name,
       code: code,
+      connections: %{player_name => %{ref: ref, timer: nil}}
     }
   end
 
@@ -55,8 +78,45 @@ defmodule Parakeet.Den.Table do
     %{state | engine_pid: engine_pid}
   end
 
-  defp join_table(state, player_name) do
-    %{state | player_names: state.player_names ++ [player_name]}
+  defp handle_join(state, player_name, liveview_pid) do
+    ref = Process.monitor(liveview_pid)
+
+    %{state |
+      player_names: state.player_names ++ [player_name],
+      connections: Map.put(state.connections, player_name, %{ref: ref, timer: nil})
+    }
   end
 
+  defp handle_rejoin(state, player_name, liveview_pid) do
+    case Map.get(state.connections, player_name) do
+      %{timer: timer} when timer != nil ->
+        Process.cancel_timer(timer)
+        ref = Process.monitor(liveview_pid)
+        connections = Map.put(state.connections, player_name, %{ref: ref, timer: nil})
+        %{state | connections: connections}
+
+      _ ->
+        state
+    end
+  end
+
+  defp handle_disconnect(state, ref) do
+    case Enum.find(state.connections, fn {_name, conn} -> conn.ref == ref end) do
+      {player_name, _conn} ->
+        Logger.debug("Player #{player_name} disconnected, grace period: #{@grace_period_ms}ms")
+        timer = Process.send_after(self(), {:evict, player_name}, @grace_period_ms)
+        connections = Map.put(state.connections, player_name, %{ref: nil, timer: timer})
+        %{state | connections: connections}
+
+      nil ->
+        state
+    end
+  end
+
+  defp handle_evict(state, player_name) do
+    %{state |
+      player_names: List.delete(state.player_names, player_name),
+      connections: Map.delete(state.connections, player_name)
+    }
+  end
 end
