@@ -14,7 +14,9 @@ defmodule Parakeet.Application do
       {Phoenix.PubSub, name: Parakeet.PubSub},
       # Start a worker by calling: Parakeet.Worker.start_link(arg)
       # {Parakeet.Worker, arg},
-
+      # Pitboss Requires Registry
+      {Registry, keys: :unique, name: Parakeet.Den.Registry},
+      Parakeet.Den.PitBoss,
       Parakeet.Game.Supervisor,
       # Start to serve requests, typically the last entry
       ParakeetWeb.Endpoint

@@ -72,6 +72,7 @@ defmodule Parakeet.Game.Engine do
 
   defp handle_empty_hand(state) do
     Logger.debug("handle_empty_hand: player #{state.current_player_idx} has no cards")
+
     players =
       List.update_at(state.players, state.current_player_idx, fn %Player{} = player ->
         %Player{player | alive: false}
@@ -82,7 +83,10 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_challenge_initiate(state, challenge_card) do
-    Logger.debug("handle_challenge_initiate: player #{state.current_player_idx} played #{challenge_card.face} (#{Card.challenge_chances(challenge_card)} chances)")
+    Logger.debug(
+      "handle_challenge_initiate: player #{state.current_player_idx} played #{challenge_card.face} (#{Card.challenge_chances(challenge_card)} chances)"
+    )
+
     %{
       state
       | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx),
@@ -93,7 +97,10 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_challenge_chance(state) do
-    Logger.debug("handle_challenge_chance: player #{state.current_player_idx} uses a chance (#{state.chances - 1} remaining)")
+    Logger.debug(
+      "handle_challenge_chance: player #{state.current_player_idx} uses a chance (#{state.chances - 1} remaining)"
+    )
+
     new_chances = state.chances - 1
 
     cond do
@@ -108,7 +115,10 @@ defmodule Parakeet.Game.Engine do
   defp handle_play_card(state) do
     player = Enum.at(state.players, state.current_player_idx)
     {card, hand} = CardStack.pop_top(player.hand)
-    Logger.debug("handle_play_card: player #{state.current_player_idx} (#{player.name}) plays #{card.face} of #{card.suit} (value: #{card.value})")
+
+    Logger.debug(
+      "handle_play_card: player #{state.current_player_idx} (#{player.name}) plays #{card.face} of #{card.suit} (value: #{card.value})"
+    )
 
     players =
       List.update_at(state.players, state.current_player_idx, fn %Player{} = player ->
@@ -146,7 +156,10 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_challenge_win(state) do
-    Logger.debug("handle_challenge_win: player #{state.challenger_idx} wins the pile (#{CardStack.count(state.pile)} cards)")
+    Logger.debug(
+      "handle_challenge_win: player #{state.challenger_idx} wins the pile (#{CardStack.count(state.pile)} cards)"
+    )
+
     player = Enum.at(state.players, state.challenger_idx)
     {pile_stack, empty_pile} = CardStack.clear(state.pile)
     new_hand = CardStack.push_bottom_n(player.hand, pile_stack)
@@ -168,7 +181,10 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_slap_success(state, slapper_idx) do
-    Logger.debug("handle_slap_success: player #{slapper_idx} slaps and wins the pile (#{CardStack.count(state.pile)} cards)")
+    Logger.debug(
+      "handle_slap_success: player #{slapper_idx} slaps and wins the pile (#{CardStack.count(state.pile)} cards)"
+    )
+
     player = Enum.at(state.players, slapper_idx)
     {pile_stack, empty_pile} = CardStack.clear(state.pile)
     new_hand = CardStack.push_bottom_n(player.hand, pile_stack)
@@ -191,6 +207,7 @@ defmodule Parakeet.Game.Engine do
 
   def handle_slap(state, slapper_idx) do
     Logger.debug("handle_slap: player #{slapper_idx} attempts slap")
+
     case Slap.slap_type(state.pile) do
       :no_slap -> handle_slap_penalty(state, slapper_idx)
       _slap_type -> handle_slap_success(state, slapper_idx)
@@ -199,7 +216,10 @@ defmodule Parakeet.Game.Engine do
 
   def handle_turn(state) do
     player = Enum.at(state.players, state.current_player_idx)
-    Logger.debug("handle_turn: player #{state.current_player_idx} (#{player.name}), hand: #{CardStack.count(player.hand)} cards, pile: #{CardStack.count(state.pile)} cards")
+
+    Logger.debug(
+      "handle_turn: player #{state.current_player_idx} (#{player.name}), hand: #{CardStack.count(player.hand)} cards, pile: #{CardStack.count(state.pile)} cards"
+    )
 
     cond do
       CardStack.count(player.hand) == 0 ->
