@@ -21,6 +21,7 @@ defmodule Parakeet.Game.CardStack do
   def pop_top(%__MODULE__{cards: [top | rest]}), do: {top, %__MODULE__{cards: rest}}
 
   def pop_top_n(stack, 0), do: {%__MODULE__{cards: []}, stack}
+  def pop_top_n(%__MODULE__{cards: []} = stack, _n), do: {%__MODULE__{cards: []}, stack}
 
   def pop_top_n(stack, n) do
     {card, stack} = pop_top(stack)

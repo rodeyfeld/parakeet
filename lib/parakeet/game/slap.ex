@@ -20,7 +20,7 @@ defmodule Parakeet.Game.Slap do
   defp queen_king?([top, second | _]), do: top.face == :queen and second.face == :king
   defp queen_king?(_), do: false
 
-  defp sandwich?([top, _, third | _]), do: top.face == third.face
+  defp sandwich?([top, _, third | _]), do: top.value == third.value
   defp sandwich?(_), do: false
 
   defp three_in_order?([top, second, third | _]) do

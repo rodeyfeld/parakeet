@@ -98,7 +98,8 @@ defmodule ParakeetWeb.DenLive do
                   class={[
                     "rounded-lg px-6 py-2.5 font-semibold transition-all",
                     if(length(@table.player_names) >= 2,
-                      do: "bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-105 active:scale-95",
+                      do:
+                        "bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-105 active:scale-95",
                       else: "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                     )
                   ]}
@@ -127,8 +128,20 @@ defmodule ParakeetWeb.DenLive do
             <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-4">
               <h2 class="text-lg font-semibold">Create a Table</h2>
               <.form for={%{}} phx-submit="create_table" id="create-table-form" class="space-y-3">
-                <.input type="text" name="player_name" value="" label="Your Name" placeholder="Enter your name" />
-                <.input type="text" name="table_name" value="" label="Table Name" placeholder="Friday Night Cards" />
+                <.input
+                  type="text"
+                  name="player_name"
+                  value=""
+                  label="Your Name"
+                  placeholder="Enter your name"
+                />
+                <.input
+                  type="text"
+                  name="table_name"
+                  value=""
+                  label="Table Name"
+                  placeholder="Friday Night Cards"
+                />
                 <button
                   type="submit"
                   class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 font-semibold transition-all hover:scale-[1.02] active:scale-95"
@@ -142,7 +155,13 @@ defmodule ParakeetWeb.DenLive do
             <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-4">
               <h2 class="text-lg font-semibold">Join a Table</h2>
               <.form for={%{}} phx-submit="join_table" id="join-table-form" class="space-y-3">
-                <.input type="text" name="player_name" value="" label="Your Name" placeholder="Enter your name" />
+                <.input
+                  type="text"
+                  name="player_name"
+                  value=""
+                  label="Your Name"
+                  placeholder="Enter your name"
+                />
                 <.input
                   type="text"
                   name="code"
@@ -182,7 +201,8 @@ defmodule ParakeetWeb.DenLive do
                     <div>
                       <div class="font-medium">{table.name}</div>
                       <div class="text-sm text-zinc-400">
-                        {length(table.player_names)} players · <span class="font-mono">{table.code}</span>
+                        {length(table.player_names)} players ·
+                        <span class="font-mono">{table.code}</span>
                       </div>
                     </div>
                     <%= if table.engine_pid == nil do %>
@@ -202,14 +222,23 @@ defmodule ParakeetWeb.DenLive do
   end
 
   @impl true
-  def handle_event("create_table", %{"player_name" => player_name, "table_name" => table_name}, socket) do
+  def handle_event(
+        "create_table",
+        %{"player_name" => player_name, "table_name" => table_name},
+        socket
+      ) do
     case PitBoss.start_table(player_name, table_name, self()) do
       {:ok, pid} ->
         table = Table.get_state(pid)
 
         {:noreply,
          socket
-         |> assign(pid: pid, table: table, player_name: player_name, tables: PitBoss.list_tables())
+         |> assign(
+           pid: pid,
+           table: table,
+           player_name: player_name,
+           tables: PitBoss.list_tables()
+         )
          |> push_patch(to: ~p"/den?code=#{table.code}&name=#{player_name}")}
 
       {:error, reason} ->

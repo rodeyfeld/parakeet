@@ -118,7 +118,8 @@ defmodule ParakeetWeb.GameLive do
                   <% end %>
                 </div>
                 <div class="text-sm text-zinc-400">
-                  Cards: <span class="font-mono font-bold text-white">{CardStack.count(player.hand)}</span>
+                  Cards:
+                  <span class="font-mono font-bold text-white">{CardStack.count(player.hand)}</span>
                 </div>
                 <%= if !player.alive do %>
                   <div class="text-sm font-semibold text-red-400">Eliminated</div>
@@ -130,7 +131,9 @@ defmodule ParakeetWeb.GameLive do
             <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 space-y-3">
               <div class="flex items-center justify-between">
                 <h3 class="font-bold text-lg">Pile</h3>
-                <span class="font-mono text-sm text-zinc-400">{CardStack.count(@game.pile)} cards</span>
+                <span class="font-mono text-sm text-zinc-400">
+                  {CardStack.count(@game.pile)} cards
+                </span>
               </div>
 
               <%= if length(@game.pile.cards) > 0 do %>
@@ -155,12 +158,26 @@ defmodule ParakeetWeb.GameLive do
                 </div>
               <% end %>
 
+              <%= if CardStack.count(@game.penalty_pile) > 0 do %>
+                <div class="rounded-lg bg-rose-900/20 border border-rose-700/30 px-3 py-2 text-sm flex items-center gap-2">
+                  <span class="text-rose-400 font-semibold">Penalty pot</span>
+                  <span class="font-mono font-bold text-white">
+                    {CardStack.count(@game.penalty_pile)}
+                  </span>
+                  <span class="text-zinc-400">cards</span>
+                </div>
+              <% end %>
+
               <%= if @game.challenger_idx != nil do %>
                 <div class="rounded-lg bg-amber-900/30 border border-amber-700/40 px-3 py-2 text-sm">
                   <div class="font-semibold text-amber-400">Challenge Active!</div>
-                  <div class="text-zinc-300">Challenger: {Enum.at(@game.players, @game.challenger_idx).name}</div>
+                  <div class="text-zinc-300">
+                    Challenger: {Enum.at(@game.players, @game.challenger_idx).name}
+                  </div>
                   <div class="text-zinc-300">Card: {format_card(@game.challenge_card)}</div>
-                  <div class="text-zinc-300">Chances left: <span class="font-mono font-bold text-white">{@game.chances}</span></div>
+                  <div class="text-zinc-300">
+                    Chances left: <span class="font-mono font-bold text-white">{@game.chances}</span>
+                  </div>
                 </div>
               <% end %>
             </div>
@@ -172,10 +189,15 @@ defmodule ParakeetWeb.GameLive do
             <div id="game-log" class="space-y-1 text-sm font-mono">
               <div class="hidden only:block text-zinc-500">No actions yet</div>
               <%= for {msg, i} <- @log |> Enum.reverse() |> Enum.with_index() do %>
-                <div id={"log-#{i}"} class={[
-                  "text-zinc-400",
-                  if(i == 0, do: "text-zinc-200 font-semibold")
-                ]}>{msg}</div>
+                <div
+                  id={"log-#{i}"}
+                  class={[
+                    "text-zinc-400",
+                    if(i == 0, do: "text-zinc-200 font-semibold")
+                  ]}
+                >
+                  {msg}
+                </div>
               <% end %>
             </div>
           </div>
@@ -241,7 +263,12 @@ defmodule ParakeetWeb.GameLive do
   end
 
   defp broadcast_game_update(code, game, msg) do
-    Phoenix.PubSub.broadcast_from(Parakeet.PubSub, self(), "game:#{code}", {:game_update, game, msg})
+    Phoenix.PubSub.broadcast_from(
+      Parakeet.PubSub,
+      self(),
+      "game:#{code}",
+      {:game_update, game, msg}
+    )
   end
 
   defp format_card(nil), do: "none"

@@ -12,7 +12,11 @@ defmodule Parakeet.Den.PitBoss do
 
   def start_table(player_name, table_name, liveview_pid) do
     code = :crypto.strong_rand_bytes(3) |> Base.encode16()
-    DynamicSupervisor.start_child(__MODULE__, {Parakeet.Den.Table, {player_name, table_name, code, liveview_pid}})
+
+    DynamicSupervisor.start_child(
+      __MODULE__,
+      {Parakeet.Den.Table, {player_name, table_name, code, liveview_pid}}
+    )
   end
 
   def find_table(code) do
@@ -24,7 +28,7 @@ defmodule Parakeet.Den.PitBoss do
 
   def list_tables do
     DynamicSupervisor.which_children(__MODULE__)
-      |> Enum.map(fn {_, pid, _, _} ->
+    |> Enum.map(fn {_, pid, _, _} ->
       Parakeet.Den.Table.get_state(pid)
     end)
   end

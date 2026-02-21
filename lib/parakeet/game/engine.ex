@@ -6,6 +6,7 @@ defmodule Parakeet.Game.Engine do
   defstruct [
     :players,
     :pile,
+    :penalty_pile,
     :challenger_idx,
     :chances,
     :challenge_card,
@@ -51,6 +52,7 @@ defmodule Parakeet.Game.Engine do
     %__MODULE__{
       players: players,
       pile: %CardStack{cards: []},
+      penalty_pile: %CardStack{cards: []},
       current_player_idx: 0,
       chances: 0,
       challenger_idx: nil,
@@ -142,28 +144,51 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_slap_penalty(state, slapper_idx) do
-    Logger.debug("handle_slap_penalty: player #{slapper_idx} bad slap! loses 2 cards")
     player = Enum.at(state.players, slapper_idx)
     {penalty_stack, new_hand} = CardStack.pop_top_n(player.hand, 2)
+
+    penalty_desc =
+      penalty_stack.cards
+      |> Enum.map(fn c -> "#{c.face} of #{c.suit} (#{c.value})" end)
+      |> Enum.join(", ")
+
+    Logger.debug(
+      "handle_slap_penalty: #{player.name} bad slap! loses #{CardStack.count(penalty_stack)} cards to penalty pile: [#{penalty_desc}]"
+    )
 
     players =
       List.update_at(state.players, slapper_idx, fn %Player{} = player ->
         %Player{player | hand: new_hand}
       end)
 
-    pile = CardStack.push_bottom_n(state.pile, penalty_stack)
-    %{state | players: players, pile: pile}
+    penalty_pile = CardStack.push_bottom_n(state.penalty_pile, penalty_stack)
+    state = %{state | players: players, penalty_pile: penalty_pile}
+
+    if CardStack.count(new_hand) == 0 do
+      Logger.debug("handle_slap_penalty: #{player.name} lost all cards — eliminated")
+
+      players =
+        List.update_at(state.players, slapper_idx, fn %Player{} = p ->
+          %Player{p | alive: false}
+        end)
+
+      %{state | players: players}
+    else
+      state
+    end
   end
 
   defp handle_challenge_win(state) do
     challenger = Enum.at(state.players, state.challenger_idx)
 
     Logger.debug(
-      "handle_challenge_win: #{challenger.name} wins the pile (#{CardStack.count(state.pile)} cards) — new round"
+      "handle_challenge_win: #{challenger.name} wins the pile (#{CardStack.count(state.pile)} + #{CardStack.count(state.penalty_pile)} penalty cards) — new round"
     )
 
     {pile_stack, empty_pile} = CardStack.clear(state.pile)
+    {pen_stack, empty_pen} = CardStack.clear(state.penalty_pile)
     new_hand = CardStack.push_bottom_n(challenger.hand, pile_stack)
+    new_hand = CardStack.push_bottom_n(new_hand, pen_stack)
 
     players =
       List.update_at(state.players, state.challenger_idx, fn %Player{} = player ->
@@ -174,6 +199,7 @@ defmodule Parakeet.Game.Engine do
       state
       | challenger_idx: nil,
         pile: empty_pile,
+        penalty_pile: empty_pen,
         players: players,
         current_player_idx: state.challenger_idx,
         chances: 0,
@@ -185,11 +211,13 @@ defmodule Parakeet.Game.Engine do
     slapper = Enum.at(state.players, slapper_idx)
 
     Logger.debug(
-      "handle_slap_success: #{slapper.name} slaps and wins the pile (#{CardStack.count(state.pile)} cards) — new round"
+      "handle_slap_success: #{slapper.name} slaps and wins the pile (#{CardStack.count(state.pile)} + #{CardStack.count(state.penalty_pile)} penalty cards) — new round"
     )
 
     {pile_stack, empty_pile} = CardStack.clear(state.pile)
+    {pen_stack, empty_pen} = CardStack.clear(state.penalty_pile)
     new_hand = CardStack.push_bottom_n(slapper.hand, pile_stack)
+    new_hand = CardStack.push_bottom_n(new_hand, pen_stack)
 
     players =
       List.update_at(state.players, slapper_idx, fn %Player{} = player ->
@@ -201,6 +229,7 @@ defmodule Parakeet.Game.Engine do
       | challenger_idx: nil,
         players: players,
         pile: empty_pile,
+        penalty_pile: empty_pen,
         current_player_idx: slapper_idx,
         chances: 0,
         challenge_card: nil
@@ -208,11 +237,18 @@ defmodule Parakeet.Game.Engine do
   end
 
   def handle_slap(state, slapper_idx) do
-    Logger.debug("handle_slap: player #{slapper_idx} attempts slap")
+    slapper = Enum.at(state.players, slapper_idx)
 
-    case Slap.slap_type(state.pile) do
-      :no_slap -> handle_slap_penalty(state, slapper_idx)
-      _slap_type -> handle_slap_success(state, slapper_idx)
+    if not slapper.alive do
+      Logger.debug("handle_slap: player #{slapper_idx} (#{slapper.name}) is dead, ignoring")
+      state
+    else
+      Logger.debug("handle_slap: player #{slapper_idx} (#{slapper.name}) attempts slap")
+
+      case Slap.slap_type(state.pile) do
+        :no_slap -> handle_slap_penalty(state, slapper_idx)
+        _slap_type -> handle_slap_success(state, slapper_idx)
+      end
     end
   end
 

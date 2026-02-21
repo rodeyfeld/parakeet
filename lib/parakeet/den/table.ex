@@ -25,8 +25,12 @@ defmodule Parakeet.Den.Table do
 
   def get_state(pid), do: GenServer.call(pid, :get_state)
   def start_game(pid), do: GenServer.call(pid, :start_game)
-  def join(pid, player_name, liveview_pid), do: GenServer.call(pid, {:join, player_name, liveview_pid})
-  def rejoin(pid, player_name, liveview_pid), do: GenServer.call(pid, {:rejoin, player_name, liveview_pid})
+
+  def join(pid, player_name, liveview_pid),
+    do: GenServer.call(pid, {:join, player_name, liveview_pid})
+
+  def rejoin(pid, player_name, liveview_pid),
+    do: GenServer.call(pid, {:rejoin, player_name, liveview_pid})
 
   @impl true
   def handle_call(:get_state, _from, state) do
@@ -81,9 +85,10 @@ defmodule Parakeet.Den.Table do
   defp handle_join(state, player_name, liveview_pid) do
     ref = Process.monitor(liveview_pid)
 
-    %{state |
-      player_names: state.player_names ++ [player_name],
-      connections: Map.put(state.connections, player_name, %{ref: ref, timer: nil})
+    %{
+      state
+      | player_names: state.player_names ++ [player_name],
+        connections: Map.put(state.connections, player_name, %{ref: ref, timer: nil})
     }
   end
 
@@ -114,9 +119,10 @@ defmodule Parakeet.Den.Table do
   end
 
   defp handle_evict(state, player_name) do
-    %{state |
-      player_names: List.delete(state.player_names, player_name),
-      connections: Map.delete(state.connections, player_name)
+    %{
+      state
+      | player_names: List.delete(state.player_names, player_name),
+        connections: Map.delete(state.connections, player_name)
     }
   end
 end
