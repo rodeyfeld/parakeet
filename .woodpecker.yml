@@ -11,6 +11,8 @@ steps:
     settings:
       repo: edrodefeld/parakeet
       auto_tag: true
+      cache_from: type=registry,ref=edrodefeld/parakeet:buildcache
+      cache_to: type=registry,ref=edrodefeld/parakeet:buildcache,mode=max
       <<: *docker_creds
     when:
       - event: [push, manual]
