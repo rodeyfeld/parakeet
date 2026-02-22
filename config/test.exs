@@ -1,10 +1,6 @@
 import Config
 
 # Configure your database
-#
-# The MIX_TEST_PARTITION environment variable can be used
-# to provide built-in test partitioning in CI environment.
-# Run `mix help test` for more information.
 config :parakeet, Parakeet.Repo,
   username: "postgres",
   password: "postgres",
@@ -19,12 +15,6 @@ config :parakeet, ParakeetWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "V59GkB2+p5elg9gZo0s8Rotop2r5iWQsiQbAMWBCsSJTk5toj1cZe+9ZK0+k0qok",
   server: false
-
-# In test we don't send emails
-config :parakeet, Parakeet.Mailer, adapter: Swoosh.Adapters.Test
-
-# Disable swoosh api client as it is only required for production adapters
-config :swoosh, :api_client, false
 
 # Print only warnings and errors during test
 config :logger, level: :warning
