@@ -65,6 +65,48 @@ defmodule ParakeetWeb.GameLive do
           </div>
         </div>
 
+        <details class="group rounded-xl border border-zinc-700 bg-zinc-900/60">
+          <summary class="cursor-pointer select-none px-5 py-3 flex items-center justify-between text-sm font-semibold text-zinc-300 hover:text-white transition-colors">
+            <span class="flex items-center gap-2">
+              <.icon name="hero-book-open" class="w-4 h-4 text-zinc-500 group-open:text-amber-400 transition-colors" />
+              How to Play
+            </span>
+            <.icon name="hero-chevron-down" class="w-4 h-4 text-zinc-500 group-open:rotate-180 transition-transform duration-200" />
+          </summary>
+          <div class="px-5 pb-4 pt-1 text-sm text-zinc-400 space-y-4 border-t border-zinc-800">
+            <p>
+              The deck is split evenly between all players. Players place cards from the top of their deck onto the pile in turn order.
+              Win by collecting all the cards.
+            </p>
+            <div>
+              <h4 class="font-semibold text-zinc-200 mb-1">Slaps</h4>
+              <p class="mb-2">When the pile matches any of these patterns, the first player to slap takes it:</p>
+              <ul class="space-y-1 pl-4 list-disc marker:text-zinc-600">
+                <li>Two identical cards in a row</li>
+                <li>A "sandwich" &mdash; two matching cards separated by one card</li>
+                <li>Three cards in numeric order</li>
+                <li>Queen followed by King</li>
+                <li>Two numbered cards adding up to ten</li>
+              </ul>
+              <p class="mt-2 text-zinc-500">Bad slap? You lose 2 cards from your hand to the bottom of the pile.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-zinc-200 mb-1">Challenges</h4>
+              <p class="mb-2">
+                When a face card is played, the next player must beat it by playing their own face card within a limited number of tries.
+                If they fail, the challenger takes the pile.
+              </p>
+              <ul class="space-y-1 pl-4 list-disc marker:text-zinc-600">
+                <li><span class="font-mono text-zinc-300">Jack</span> &mdash; 1 chance</li>
+                <li><span class="font-mono text-zinc-300">Queen</span> &mdash; 2 chances</li>
+                <li><span class="font-mono text-zinc-300">King</span> &mdash; 3 chances</li>
+                <li><span class="font-mono text-zinc-300">Ace</span> &mdash; 4 chances</li>
+              </ul>
+              <p class="mt-2 text-zinc-500">A slap can be performed at any time during a challenge.</p>
+            </div>
+          </div>
+        </details>
+
         <div class="space-y-6">
           <%= if @game.status == :finished do %>
             <div class="rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-900/30 to-yellow-900/20 p-6 text-center space-y-3">
