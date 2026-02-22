@@ -51,7 +51,7 @@ defmodule ParakeetWeb.GameLive do
     <Layouts.app flash={@flash}>
       <div class="space-y-6">
         <div class="flex items-center justify-between">
-          <h1 class="text-3xl font-bold tracking-tight">NOBOLO</h1>
+          <h1 class="text-3xl font-bold tracking-tight">Parakeet</h1>
           <div class="flex items-center gap-3">
             <span class="text-sm text-zinc-400">
               Playing as <span class="font-semibold text-white">{@player_name}</span>
@@ -226,20 +226,18 @@ defmodule ParakeetWeb.GameLive do
 
   @impl true
   def handle_event("play_turn", _params, socket) do
-    old_pile_count = CardStack.count(socket.assigns.game.pile)
+    old_game = socket.assigns.game
+    old_player = Enum.at(old_game.players, old_game.current_player_idx)
+    {played_card, _} = CardStack.pop_top(old_player.hand)
+
     game = Engine.play_turn(socket.assigns.engine_pid)
-    current = Enum.at(game.players, game.current_player_idx)
 
-    top_card =
-      if length(game.pile.cards) > 0,
-        do: format_card(hd(game.pile.cards)),
-        else: "empty"
-
-    msgs = ["#{current.name} plays → pile top: #{top_card}"]
+    msgs = ["#{old_player.name} plays #{format_card(played_card)}"]
 
     msgs =
-      if old_pile_count > 0 and CardStack.count(game.pile) == 0 do
-        msgs ++ ["── New round ── #{current.name} collects the pile"]
+      if CardStack.count(old_game.pile) > 0 and CardStack.count(game.pile) == 0 do
+        collector = Enum.at(game.players, game.current_player_idx)
+        msgs ++ ["── New round ── #{collector.name} collects the pile"]
       else
         msgs
       end
