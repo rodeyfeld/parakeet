@@ -28,6 +28,7 @@ defmodule ParakeetWeb.GameLive do
             {:ok,
              assign(socket,
                code: code,
+               table_pid: table_pid,
                engine_pid: table.engine_pid,
                game: game,
                player_name: player_name,
@@ -244,6 +245,7 @@ defmodule ParakeetWeb.GameLive do
       end
 
     for msg <- msgs, do: broadcast_game_update(socket.assigns.code, game, msg)
+    maybe_notify_game_over(socket, game)
 
     {:noreply, assign(socket, game: game, log: socket.assigns.log ++ msgs)}
   end
@@ -269,6 +271,7 @@ defmodule ParakeetWeb.GameLive do
       end
 
     for msg <- msgs, do: broadcast_game_update(socket.assigns.code, game, msg)
+    maybe_notify_game_over(socket, game)
 
     {:noreply, assign(socket, game: game, log: socket.assigns.log ++ msgs)}
   end
@@ -276,6 +279,12 @@ defmodule ParakeetWeb.GameLive do
   @impl true
   def handle_info({:game_update, game, msg}, socket) do
     {:noreply, assign(socket, game: game, log: socket.assigns.log ++ [msg])}
+  end
+
+  defp maybe_notify_game_over(socket, game) do
+    if game.status == :finished do
+      Table.update_game_status(socket.assigns.table_pid, :finished)
+    end
   end
 
   defp broadcast_game_update(code, game, msg) do

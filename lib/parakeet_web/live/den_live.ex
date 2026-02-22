@@ -108,9 +108,15 @@ defmodule ParakeetWeb.DenLive do
                   Start Game
                 </button>
               <% else %>
-                <div class="rounded-lg bg-emerald-900/40 border border-emerald-700/50 px-4 py-2.5 text-sm text-emerald-400 font-medium">
-                  Game in progress
-                </div>
+                <%= if @table.game_status == :finished do %>
+                  <div class="rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-2.5 text-sm text-zinc-400 font-medium">
+                    Game finished
+                  </div>
+                <% else %>
+                  <div class="rounded-lg bg-emerald-900/40 border border-emerald-700/50 px-4 py-2.5 text-sm text-emerald-400 font-medium">
+                    Game in progress
+                  </div>
+                <% end %>
               <% end %>
               <button
                 phx-click="leave_table"
@@ -205,10 +211,13 @@ defmodule ParakeetWeb.DenLive do
                         <span class="font-mono">{table.code}</span>
                       </div>
                     </div>
-                    <%= if table.engine_pid == nil do %>
-                      <span class="text-xs text-emerald-400 font-medium">Waiting</span>
-                    <% else %>
-                      <span class="text-xs text-amber-400 font-medium">In Game</span>
+                    <%= cond do %>
+                      <% table.game_status == :finished -> %>
+                        <span class="text-xs text-zinc-500 font-medium">Finished</span>
+                      <% table.game_status == :running -> %>
+                        <span class="text-xs text-amber-400 font-medium">In Game</span>
+                      <% true -> %>
+                        <span class="text-xs text-emerald-400 font-medium">Waiting</span>
                     <% end %>
                   </div>
                 <% end %>

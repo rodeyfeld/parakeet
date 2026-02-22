@@ -31,5 +31,6 @@ defmodule Parakeet.Den.PitBoss do
     |> Enum.map(fn {_, pid, _, _} ->
       Parakeet.Den.Table.get_state(pid)
     end)
+    |> Enum.reverse()
   end
 end

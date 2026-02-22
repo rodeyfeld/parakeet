@@ -9,7 +9,8 @@ defmodule Parakeet.Den.Table do
     :code,
     :engine_pid,
     player_names: [],
-    connections: %{}
+    connections: %{},
+    game_status: :waiting
   ]
 
   def start_link({player_name, table_name, code, liveview_pid}) do
@@ -32,6 +33,9 @@ defmodule Parakeet.Den.Table do
   def rejoin(pid, player_name, liveview_pid),
     do: GenServer.call(pid, {:rejoin, player_name, liveview_pid})
 
+  def update_game_status(pid, status),
+    do: GenServer.cast(pid, {:update_game_status, status})
+
   @impl true
   def handle_call(:get_state, _from, state) do
     {:reply, state, state}
@@ -53,6 +57,11 @@ defmodule Parakeet.Den.Table do
   def handle_call({:rejoin, player_name, liveview_pid}, _from, state) do
     new_state = handle_rejoin(state, player_name, liveview_pid)
     {:reply, new_state, new_state}
+  end
+
+  @impl true
+  def handle_cast({:update_game_status, status}, state) do
+    {:noreply, %{state | game_status: status}}
   end
 
   @impl true
@@ -79,7 +88,7 @@ defmodule Parakeet.Den.Table do
 
   defp start_engine(state) do
     {:ok, engine_pid} = Parakeet.Game.Supervisor.start_game(state.player_names)
-    %{state | engine_pid: engine_pid}
+    %{state | engine_pid: engine_pid, game_status: :running}
   end
 
   defp handle_join(state, player_name, liveview_pid) do
