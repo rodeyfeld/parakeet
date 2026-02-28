@@ -30,14 +30,24 @@ defmodule ParakeetWeb.DenLive do
           {:noreply,
            socket
            |> put_flash(:error, "Table no longer exists")
-           |> push_patch(to: ~p"/den")}
+           |> push_patch(to: ~p"/den?name=#{name}")}
       end
+    else
+      {:noreply, assign(socket, player_name: name)}
+    end
+  end
+
+  def handle_params(%{"name" => name}, _uri, socket) do
+    {:noreply, assign(socket, player_name: name)}
+  end
+
+  def handle_params(_params, _uri, socket) do
+    if connected?(socket) do
+      {:noreply, push_navigate(socket, to: ~p"/")}
     else
       {:noreply, socket}
     end
   end
-
-  def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
   @impl true
   def handle_info(:refresh, socket) do
@@ -66,7 +76,20 @@ defmodule ParakeetWeb.DenLive do
     ~H"""
     <Layouts.app flash={@flash}>
       <div class="max-w-2xl mx-auto space-y-8">
-        <h1 class="text-3xl font-bold tracking-tight">The Den</h1>
+        <div class="flex items-center justify-between">
+          <h1 class="text-3xl font-bold tracking-tight">The Den</h1>
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-zinc-400">
+              Playing as <span class="font-semibold text-white">{@player_name}</span>
+            </span>
+            <.link
+              navigate={~p"/"}
+              class="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              Change name
+            </.link>
+          </div>
+        </div>
 
         <%= if @table do %>
           <%!-- Table Waiting Room --%>
@@ -136,13 +159,6 @@ defmodule ParakeetWeb.DenLive do
               <.form for={%{}} phx-submit="create_table" id="create-table-form" class="space-y-3">
                 <.input
                   type="text"
-                  name="player_name"
-                  value=""
-                  label="Your Name"
-                  placeholder="Enter your name"
-                />
-                <.input
-                  type="text"
                   name="table_name"
                   value=""
                   label="Table Name"
@@ -161,13 +177,6 @@ defmodule ParakeetWeb.DenLive do
             <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-4">
               <h2 class="text-lg font-semibold">Join a Table</h2>
               <.form for={%{}} phx-submit="join_table" id="join-table-form" class="space-y-3">
-                <.input
-                  type="text"
-                  name="player_name"
-                  value=""
-                  label="Your Name"
-                  placeholder="Enter your name"
-                />
                 <.input
                   type="text"
                   name="code"
@@ -217,7 +226,13 @@ defmodule ParakeetWeb.DenLive do
                       <% table.game_status == :running -> %>
                         <span class="text-xs text-amber-400 font-medium">In Game</span>
                       <% true -> %>
-                        <span class="text-xs text-emerald-400 font-medium">Waiting</span>
+                        <button
+                          phx-click="join_table"
+                          phx-value-code={table.code}
+                          class="rounded-lg border border-zinc-600 hover:border-zinc-400 text-sm text-white px-3 py-1.5 font-medium transition-all hover:scale-105 active:scale-95"
+                        >
+                          Join
+                        </button>
                     <% end %>
                   </div>
                 <% end %>
@@ -231,23 +246,16 @@ defmodule ParakeetWeb.DenLive do
   end
 
   @impl true
-  def handle_event(
-        "create_table",
-        %{"player_name" => player_name, "table_name" => table_name},
-        socket
-      ) do
+  def handle_event("create_table", %{"table_name" => table_name}, socket) do
+    player_name = socket.assigns.player_name
+
     case PitBoss.start_table(player_name, table_name, self()) do
       {:ok, pid} ->
         table = Table.get_state(pid)
 
         {:noreply,
          socket
-         |> assign(
-           pid: pid,
-           table: table,
-           player_name: player_name,
-           tables: PitBoss.list_tables()
-         )
+         |> assign(pid: pid, table: table, tables: PitBoss.list_tables())
          |> push_patch(to: ~p"/den?code=#{table.code}&name=#{player_name}")}
 
       {:error, reason} ->
@@ -256,14 +264,16 @@ defmodule ParakeetWeb.DenLive do
   end
 
   @impl true
-  def handle_event("join_table", %{"code" => code, "player_name" => player_name}, socket) do
+  def handle_event("join_table", %{"code" => code}, socket) do
+    player_name = socket.assigns.player_name
+
     case PitBoss.find_table(code) do
       {:ok, pid} ->
         table = Table.join(pid, player_name, self())
 
         {:noreply,
          socket
-         |> assign(pid: pid, table: table, player_name: player_name)
+         |> assign(pid: pid, table: table)
          |> push_patch(to: ~p"/den?code=#{table.code}&name=#{player_name}")}
 
       :not_found ->
@@ -283,8 +293,8 @@ defmodule ParakeetWeb.DenLive do
   def handle_event("leave_table", _params, socket) do
     {:noreply,
      socket
-     |> assign(pid: nil, table: nil, player_name: nil, tables: PitBoss.list_tables())
-     |> push_patch(to: ~p"/den")}
+     |> assign(pid: nil, table: nil, tables: PitBoss.list_tables())
+     |> push_patch(to: ~p"/den?name=#{socket.assigns.player_name}")}
   end
 
   @impl true

@@ -4,6 +4,8 @@ defmodule Parakeet.Den.Table do
 
   @grace_period_ms 30_000
 
+  @type engine_status :: :waiting | :running | :finished
+
   defstruct [
     :name,
     :code,
@@ -72,7 +74,15 @@ defmodule Parakeet.Den.Table do
   @impl true
   def handle_info({:evict, player_name}, state) do
     Logger.debug("Evicting #{player_name} from table #{state.code}")
-    {:noreply, handle_evict(state, player_name)}
+
+    case handle_evict(state, player_name) do
+      {:stop, new_state} ->
+        Logger.info("Table #{state.code} is empty, shutting down")
+        {:stop, :normal, new_state}
+
+      {:ok, new_state} ->
+        {:noreply, new_state}
+    end
   end
 
   defp create_table(player_name, table_name, code, liveview_pid) do
@@ -128,10 +138,16 @@ defmodule Parakeet.Den.Table do
   end
 
   defp handle_evict(state, player_name) do
-    %{
+    state = %{
       state
       | player_names: List.delete(state.player_names, player_name),
         connections: Map.delete(state.connections, player_name)
     }
+
+    if state.player_names == [] do
+      {:stop, state}
+    else
+      {:ok, state}
+    end
   end
 end

@@ -52,6 +52,8 @@ If a player puts down a face card in the pile, then the next player must place c
 
 If they do not place a face card within the challenge, the pile goes to the player who has most recently placed a face card. If a player wins a challenge, their turn is next
 
+If a player runs out of cards during a challenge, the challenge should pass to the next valid player.
+
 The challenge criteria are:
 - Jack: 1 chance to beat
 - Queen: 2 chance to beat

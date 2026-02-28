@@ -4,6 +4,7 @@ defmodule Parakeet.Game.Engine do
   use GenServer
 
   @shutdown_delay_ms 120_000
+  @type status :: :running | :finished
 
   defstruct [
     :players,
@@ -90,12 +91,19 @@ defmodule Parakeet.Game.Engine do
     end
   end
 
+  # Called when current player has 0 cards at the start of their turn.
+  # If they were the active challenger (e.g. died from a bad slap earlier),
+  # the challenge is voided since there's no one to award the pile to.
+  # If they were responding to a challenge, the challenge passes to the
+  # next alive player with the remaining chances intact.
   defp handle_empty_hand(state) do
-    Logger.debug("handle_empty_hand: player #{state.current_player_idx} has no cards")
+    dying_idx = state.current_player_idx
+    dying_player = Enum.at(state.players, dying_idx)
+    Logger.debug("handle_empty_hand: #{dying_player.name} (#{dying_idx}) has no cards")
 
     players =
-      List.update_at(state.players, state.current_player_idx, fn %Player{} = player ->
-        %Player{player | alive: false}
+      List.update_at(state.players, dying_idx, fn %Player{} = p ->
+        %Player{p | alive: false}
       end)
 
     state = %{state | players: players}
@@ -104,7 +112,66 @@ defmodule Parakeet.Game.Engine do
     if state.status == :finished do
       state
     else
-      %{state | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx)}
+      next_idx = get_next_alive_player_idx(state, dying_idx)
+
+      cond do
+        state.challenger_idx == dying_idx ->
+          Logger.debug("handle_empty_hand: challenger died, voiding challenge")
+
+          %{
+            state
+            | challenger_idx: nil,
+              chances: 0,
+              challenge_card: nil,
+              current_player_idx: next_idx
+          }
+
+        state.challenger_idx != nil ->
+          # The next alive player after the dying responder might wrap around to the
+          # challenger. Skip past them so the challenger doesn't respond to their own challenge.
+          responder_idx =
+            if next_idx == state.challenger_idx do
+              get_next_alive_player_idx(state, next_idx)
+            else
+              next_idx
+            end
+
+          Logger.debug(
+            "handle_empty_hand: challenge responder died, passing to player #{responder_idx}"
+          )
+
+          %{state | current_player_idx: responder_idx}
+
+        true ->
+          %{state | current_player_idx: next_idx}
+      end
+    end
+  end
+
+  # Handles immediate elimination after a player plays their last card.
+  # The cond covers three post-play states:
+  #   - Game ended: no further state changes needed
+  #   - Dead player is still current (mid-challenge with chances left): advance turn
+  #   - Turn was already advanced by challenge/normal play logic: leave as-is
+  defp eliminate_after_play(state, idx, name) do
+    Logger.debug("handle_play_card: #{name} played their last card — eliminated")
+
+    players =
+      List.update_at(state.players, idx, fn %Player{} = p ->
+        %Player{p | alive: false}
+      end)
+
+    state = check_game_over(%{state | players: players})
+
+    cond do
+      state.status == :finished ->
+        state
+
+      state.current_player_idx == idx ->
+        %{state | current_player_idx: get_next_alive_player_idx(state, idx)}
+
+      true ->
+        state
     end
   end
 
@@ -153,7 +220,8 @@ defmodule Parakeet.Game.Engine do
   end
 
   defp handle_play_card(state) do
-    player = Enum.at(state.players, state.current_player_idx)
+    playing_idx = state.current_player_idx
+    player = Enum.at(state.players, playing_idx)
     {card, hand} = CardStack.pop_top(player.hand)
 
     Logger.debug(
@@ -168,16 +236,27 @@ defmodule Parakeet.Game.Engine do
     pile = CardStack.push_top(state.pile, card)
     state = %{state | players: players, pile: pile}
 
-    cond do
-      Card.face?(card) ->
-        handle_challenge_initiate(state, card)
+    state =
+      cond do
+        Card.face?(card) ->
+          handle_challenge_initiate(state, card)
 
-      state.challenger_idx != nil ->
-        handle_challenge_chance(state)
+        state.challenger_idx != nil ->
+          handle_challenge_chance(state)
 
-      true ->
-        next_idx = get_next_alive_player_idx(state, state.current_player_idx)
-        %{state | current_player_idx: next_idx}
+        true ->
+          next_idx = get_next_alive_player_idx(state, state.current_player_idx)
+          %{state | current_player_idx: next_idx}
+      end
+
+    # Eliminate immediately if the player just emptied their hand, UNLESS they
+    # played a face card and became the challenger -- they may still win the pile back.
+    played_last_card = CardStack.count(hand) == 0 and state.challenger_idx != playing_idx
+
+    if played_last_card do
+      eliminate_after_play(state, playing_idx, player.name)
+    else
+      state
     end
   end
 
@@ -210,7 +289,16 @@ defmodule Parakeet.Game.Engine do
           %Player{p | alive: false}
         end)
 
-      check_game_over(%{state | players: players})
+      state = check_game_over(%{state | players: players})
+
+      # Edge case: the challenger bad-slaps and dies while their own challenge
+      # is active. Void the challenge so handle_challenge_win doesn't later
+      # award the pile to a dead player.
+      if state.status != :finished and state.challenger_idx == slapper_idx do
+        %{state | challenger_idx: nil, chances: 0, challenge_card: nil}
+      else
+        state
+      end
     else
       state
     end
@@ -219,17 +307,32 @@ defmodule Parakeet.Game.Engine do
   defp handle_challenge_win(state) do
     challenger = Enum.at(state.players, state.challenger_idx)
 
+    # If the challenger died mid-challenge (bad slap), the pile goes to the
+    # next alive player rather than a dead player's hand.
+    winner_idx =
+      if challenger.alive do
+        state.challenger_idx
+      else
+        Logger.debug(
+          "handle_challenge_win: challenger #{challenger.name} is dead, pile goes to next alive player"
+        )
+
+        get_next_alive_player_idx(state, state.challenger_idx)
+      end
+
+    winner = Enum.at(state.players, winner_idx)
+
     Logger.debug(
-      "handle_challenge_win: #{challenger.name} wins the pile (#{CardStack.count(state.pile)} + #{CardStack.count(state.penalty_pile)} penalty cards) — new round"
+      "handle_challenge_win: #{winner.name} wins the pile (#{CardStack.count(state.pile)} + #{CardStack.count(state.penalty_pile)} penalty cards) — new round"
     )
 
     {pile_stack, empty_pile} = CardStack.clear(state.pile)
     {pen_stack, empty_pen} = CardStack.clear(state.penalty_pile)
-    new_hand = CardStack.push_bottom_n(challenger.hand, pile_stack)
+    new_hand = CardStack.push_bottom_n(winner.hand, pile_stack)
     new_hand = CardStack.push_bottom_n(new_hand, pen_stack)
 
     players =
-      List.update_at(state.players, state.challenger_idx, fn %Player{} = player ->
+      List.update_at(state.players, winner_idx, fn %Player{} = player ->
         %Player{player | hand: new_hand}
       end)
 
@@ -239,7 +342,7 @@ defmodule Parakeet.Game.Engine do
         pile: empty_pile,
         penalty_pile: empty_pen,
         players: players,
-        current_player_idx: state.challenger_idx,
+        current_player_idx: winner_idx,
         chances: 0,
         challenge_card: nil
     }

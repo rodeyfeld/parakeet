@@ -17,7 +17,7 @@ defmodule ParakeetWeb.Router do
   scope "/", ParakeetWeb do
     pipe_through :browser
 
-    live "/", DenLive
+    live "/", HomeLive
     live "/den", DenLive
     live "/game/:code", GameLive
   end

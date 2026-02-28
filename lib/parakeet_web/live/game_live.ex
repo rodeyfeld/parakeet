@@ -13,6 +13,9 @@ defmodule ParakeetWeb.GameLive do
         table = Table.get_state(table_pid)
 
         cond do
+          player_name == nil ->
+            {:ok, push_navigate(socket, to: ~p"/")}
+
           table.engine_pid == nil ->
             {:ok,
              socket
@@ -41,7 +44,7 @@ defmodule ParakeetWeb.GameLive do
         {:ok,
          socket
          |> put_flash(:error, "Table not found")
-         |> push_navigate(to: ~p"/den")}
+         |> push_navigate(to: ~p"/")}
     end
   end
 
@@ -57,7 +60,7 @@ defmodule ParakeetWeb.GameLive do
               Playing as <span class="font-semibold text-white">{@player_name}</span>
             </span>
             <.link
-              navigate={~p"/den"}
+              navigate={~p"/den?name=#{@player_name}"}
               class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
             >
               Leave Game
@@ -68,10 +71,15 @@ defmodule ParakeetWeb.GameLive do
         <details class="group rounded-xl border border-zinc-700 bg-zinc-900/60">
           <summary class="cursor-pointer select-none px-5 py-3 flex items-center justify-between text-sm font-semibold text-zinc-300 hover:text-white transition-colors">
             <span class="flex items-center gap-2">
-              <.icon name="hero-book-open" class="w-4 h-4 text-zinc-500 group-open:text-amber-400 transition-colors" />
-              How to Play
+              <.icon
+                name="hero-book-open"
+                class="w-4 h-4 text-zinc-500 group-open:text-amber-400 transition-colors"
+              /> How to Play
             </span>
-            <.icon name="hero-chevron-down" class="w-4 h-4 text-zinc-500 group-open:rotate-180 transition-transform duration-200" />
+            <.icon
+              name="hero-chevron-down"
+              class="w-4 h-4 text-zinc-500 group-open:rotate-180 transition-transform duration-200"
+            />
           </summary>
           <div class="px-5 pb-4 pt-1 text-sm text-zinc-400 space-y-4 border-t border-zinc-800">
             <p>
@@ -80,7 +88,9 @@ defmodule ParakeetWeb.GameLive do
             </p>
             <div>
               <h4 class="font-semibold text-zinc-200 mb-1">Slaps</h4>
-              <p class="mb-2">When the pile matches any of these patterns, the first player to slap takes it:</p>
+              <p class="mb-2">
+                When the pile matches any of these patterns, the first player to slap takes it:
+              </p>
               <ul class="space-y-1 pl-4 list-disc marker:text-zinc-600">
                 <li>Two identical cards in a row</li>
                 <li>A "sandwich" &mdash; two matching cards separated by one card</li>
@@ -88,7 +98,9 @@ defmodule ParakeetWeb.GameLive do
                 <li>Queen followed by King</li>
                 <li>Two numbered cards adding up to ten</li>
               </ul>
-              <p class="mt-2 text-zinc-500">Bad slap? You lose 2 cards from your hand to the bottom of the pile.</p>
+              <p class="mt-2 text-zinc-500">
+                Bad slap? You lose 2 cards from your hand to the bottom of the pile.
+              </p>
             </div>
             <div>
               <h4 class="font-semibold text-zinc-200 mb-1">Challenges</h4>
@@ -102,7 +114,9 @@ defmodule ParakeetWeb.GameLive do
                 <li><span class="font-mono text-zinc-300">King</span> &mdash; 3 chances</li>
                 <li><span class="font-mono text-zinc-300">Ace</span> &mdash; 4 chances</li>
               </ul>
-              <p class="mt-2 text-zinc-500">A slap can be performed at any time during a challenge.</p>
+              <p class="mt-2 text-zinc-500">
+                A slap can be performed at any time during a challenge.
+              </p>
             </div>
           </div>
         </details>
@@ -116,7 +130,7 @@ defmodule ParakeetWeb.GameLive do
               </div>
               <div class="text-sm text-zinc-500">This game will close in 2 minutes.</div>
               <.link
-                navigate={~p"/den"}
+                navigate={~p"/den?name=#{@player_name}"}
                 class="inline-block mt-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2.5 font-semibold transition-all"
               >
                 Back to Lobby
@@ -124,29 +138,41 @@ defmodule ParakeetWeb.GameLive do
             </div>
           <% else %>
             <%!-- Controls --%>
-            <div class="flex gap-3 flex-wrap items-center">
-              <%= if @player_idx == @game.current_player_idx do %>
-                <button
-                  phx-click="play_turn"
-                  id="play-turn-btn"
-                  class="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 font-semibold transition-all hover:scale-105 active:scale-95"
-                >
+            <div class="flex flex-col gap-3 w-48">
+              <% my_turn? = @player_idx == @game.current_player_idx %>
+              <% alive? = @player_idx != nil and Enum.at(@game.players, @player_idx).alive %>
+              <button
+                phx-click="play_turn"
+                id="play-turn-btn"
+                disabled={not (my_turn? and alive?)}
+                class={[
+                  "rounded-lg px-5 py-2.5 font-semibold transition-all w-full",
+                  if(my_turn? and alive?,
+                    do: "bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-105 active:scale-95",
+                    else: "bg-zinc-800 border border-zinc-700 text-zinc-500 cursor-not-allowed"
+                  )
+                ]}
+              >
+                <%= if my_turn? and alive? do %>
                   Play Card
-                </button>
-              <% else %>
-                <div class="rounded-lg bg-zinc-800 border border-zinc-700 px-5 py-2 text-sm text-zinc-500">
+                <% else %>
                   Waiting for {Enum.at(@game.players, @game.current_player_idx).name}...
-                </div>
-              <% end %>
-              <%= if @player_idx != nil and Enum.at(@game.players, @player_idx).alive do %>
-                <button
-                  phx-click="slap"
-                  id="slap-btn"
-                  class="rounded-lg bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 font-semibold transition-all hover:scale-105 active:scale-95"
-                >
-                  Slap!
-                </button>
-              <% end %>
+                <% end %>
+              </button>
+              <button
+                phx-click="slap"
+                id="slap-btn"
+                disabled={not alive?}
+                class={[
+                  "rounded-lg px-5 py-2.5 font-semibold transition-all w-full",
+                  if(alive?,
+                    do: "bg-amber-600 hover:bg-amber-500 text-white hover:scale-105 active:scale-95",
+                    else: "bg-zinc-800 border border-zinc-700 text-zinc-500 cursor-not-allowed"
+                  )
+                ]}
+              >
+                Slap!
+              </button>
             </div>
           <% end %>
 
