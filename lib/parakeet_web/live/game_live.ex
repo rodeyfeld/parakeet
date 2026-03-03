@@ -9,8 +9,8 @@ defmodule ParakeetWeb.GameLive do
   @event_flash_ms 2_500
 
   @impl true
-  def mount(%{"code" => code} = params, _session, socket) do
-    player_name = params["name"]
+  def mount(%{"code" => code}, session, socket) do
+    player_name = session["player_name"]
 
     case PitBoss.find_table(code) do
       {:ok, table_pid} ->
@@ -24,7 +24,7 @@ defmodule ParakeetWeb.GameLive do
             {:ok,
              socket
              |> put_flash(:error, "Game hasn't started yet")
-             |> push_navigate(to: ~p"/den?code=#{code}&name=#{player_name}")}
+             |> push_navigate(to: ~p"/den")}
 
           true ->
             if connected?(socket), do: Phoenix.PubSub.subscribe(Parakeet.PubSub, "game:#{code}")
@@ -66,7 +66,7 @@ defmodule ParakeetWeb.GameLive do
               Playing as <span class="font-semibold text-white">{@player_name}</span>
             </span>
             <.link
-              navigate={~p"/den?name=#{@player_name}"}
+              navigate={~p"/den"}
               class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
             >
               Leave Game
@@ -78,7 +78,7 @@ defmodule ParakeetWeb.GameLive do
 
         <div class="space-y-6">
           <%= if @game.status == :finished do %>
-            <.game_over_banner winner={@game.winner} player_name={@player_name} />
+            <.game_over_banner winner={@game.winner} />
           <% else %>
             <.game_controls game={@game} player_idx={@player_idx} />
           <% end %>

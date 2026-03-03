@@ -126,7 +126,7 @@ defmodule ParakeetWeb.DenComponents do
         </button>
       </div>
       <%= if @tables == [] do %>
-        <p class="text-sm text-zinc-500">No tables open yet. Create one!</p>
+        <p class="text-sm text-zinc-500">No tables open yet.</p>
       <% else %>
         <div class="space-y-2">
           <.table_row :for={table <- @tables} table={table} />

@@ -82,7 +82,6 @@ defmodule ParakeetWeb.GameComponents do
   end
 
   attr :winner, :string, required: true
-  attr :player_name, :string, required: true
 
   def game_over_banner(assigns) do
     ~H"""
@@ -93,7 +92,7 @@ defmodule ParakeetWeb.GameComponents do
       </div>
       <div class="text-sm text-zinc-500">This game will close in 2 minutes.</div>
       <.link
-        navigate={~p"/den?name=#{@player_name}"}
+        navigate={~p"/den"}
         class="inline-block mt-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2.5 font-semibold transition-all"
       >
         Back to Lobby

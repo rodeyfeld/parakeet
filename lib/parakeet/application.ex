@@ -13,8 +13,9 @@ defmodule Parakeet.Application do
       {DNSCluster, query: Application.get_env(:parakeet, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Parakeet.PubSub},
       {Registry, keys: :unique, name: Parakeet.Den.Registry},
+      {Registry, keys: :unique, name: Parakeet.Den.SessionRegistry},
       Parakeet.Den.PitBoss,
-      Parakeet.Game.Supervisor,
+      Parakeet.Game.Dealer,
       ParakeetWeb.Endpoint
     ]
 

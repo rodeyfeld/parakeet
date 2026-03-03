@@ -4,6 +4,7 @@ defmodule ParakeetWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug ParakeetWeb.Plugs.EnsureSessionToken
     plug :fetch_live_flash
     plug :put_root_layout, html: {ParakeetWeb.Layouts, :root}
     plug :protect_from_forgery
@@ -18,6 +19,8 @@ defmodule ParakeetWeb.Router do
     pipe_through :browser
 
     live "/", HomeLive
+    post "/session", SessionController, :create
+    delete "/session", SessionController, :delete
     live "/den", DenLive
     live "/game/:code", GameLive
   end

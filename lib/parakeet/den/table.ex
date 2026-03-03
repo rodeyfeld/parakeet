@@ -15,25 +15,25 @@ defmodule Parakeet.Den.Table do
     game_status: :waiting
   ]
 
-  def start_link({player_name, table_name, code, liveview_pid}) do
-    GenServer.start_link(__MODULE__, {player_name, table_name, code, liveview_pid},
+  def start_link({session_token, player_name, table_name, code, liveview_pid}) do
+    GenServer.start_link(__MODULE__, {session_token, player_name, table_name, code, liveview_pid},
       name: {:via, Registry, {Parakeet.Den.Registry, code}}
     )
   end
 
   @impl true
-  def init({player_name, table_name, code, liveview_pid}) do
-    {:ok, create_table(player_name, table_name, code, liveview_pid)}
+  def init({session_token, player_name, table_name, code, liveview_pid}) do
+    {:ok, create_table(session_token, player_name, table_name, code, liveview_pid)}
   end
 
   def get_state(pid), do: GenServer.call(pid, :get_state)
   def start_game(pid), do: GenServer.call(pid, :start_game)
 
-  def join(pid, player_name, liveview_pid),
-    do: GenServer.call(pid, {:join, player_name, liveview_pid})
+  def join(pid, session_token, player_name, liveview_pid),
+    do: GenServer.call(pid, {:join, session_token, player_name, liveview_pid})
 
-  def rejoin(pid, player_name, liveview_pid),
-    do: GenServer.call(pid, {:rejoin, player_name, liveview_pid})
+  def rejoin(pid, session_token, liveview_pid),
+    do: GenServer.call(pid, {:rejoin, session_token, liveview_pid})
 
   def update_game_status(pid, status),
     do: GenServer.cast(pid, {:update_game_status, status})
@@ -50,14 +50,14 @@ defmodule Parakeet.Den.Table do
   end
 
   @impl true
-  def handle_call({:join, player_name, liveview_pid}, _from, state) do
-    new_state = handle_join(state, player_name, liveview_pid)
+  def handle_call({:join, session_token, player_name, liveview_pid}, _from, state) do
+    new_state = handle_join(state, session_token, player_name, liveview_pid)
     {:reply, new_state, new_state}
   end
 
   @impl true
-  def handle_call({:rejoin, player_name, liveview_pid}, _from, state) do
-    new_state = handle_rejoin(state, player_name, liveview_pid)
+  def handle_call({:rejoin, session_token, liveview_pid}, _from, state) do
+    new_state = handle_rejoin(state, session_token, liveview_pid)
     {:reply, new_state, new_state}
   end
 
@@ -72,10 +72,12 @@ defmodule Parakeet.Den.Table do
   end
 
   @impl true
-  def handle_info({:evict, player_name}, state) do
-    Logger.debug("Evicting #{player_name} from table #{state.code}")
+  def handle_info({:evict, session_token}, state) do
+    conn = Map.get(state.connections, session_token)
+    name = if conn, do: conn.name, else: session_token
+    Logger.debug("Evicting #{name} from table #{state.code}")
 
-    case handle_evict(state, player_name) do
+    case handle_evict(state, session_token) do
       {:stop, new_state} ->
         Logger.info("Table #{state.code} is empty, shutting down")
         {:stop, :normal, new_state}
@@ -85,38 +87,46 @@ defmodule Parakeet.Den.Table do
     end
   end
 
-  defp create_table(player_name, table_name, code, liveview_pid) do
+  defp create_table(session_token, player_name, table_name, code, liveview_pid) do
     ref = Process.monitor(liveview_pid)
+    Registry.register(Parakeet.Den.SessionRegistry, session_token, code)
 
     %__MODULE__{
       player_names: [player_name],
       name: table_name,
       code: code,
-      connections: %{player_name => %{ref: ref, timer: nil}}
+      connections: %{session_token => %{name: player_name, ref: ref, timer: nil}}
     }
   end
 
   defp start_engine(state) do
-    {:ok, engine_pid} = Parakeet.Game.Supervisor.start_game(state.player_names)
+    {:ok, engine_pid} = Parakeet.Game.Dealer.start_game(state.player_names)
     %{state | engine_pid: engine_pid, game_status: :running}
   end
 
-  defp handle_join(state, player_name, liveview_pid) do
+  defp handle_join(state, session_token, player_name, liveview_pid) do
     ref = Process.monitor(liveview_pid)
+    Registry.register(Parakeet.Den.SessionRegistry, session_token, state.code)
 
     %{
       state
       | player_names: state.player_names ++ [player_name],
-        connections: Map.put(state.connections, player_name, %{ref: ref, timer: nil})
+        connections:
+          Map.put(state.connections, session_token, %{name: player_name, ref: ref, timer: nil})
     }
   end
 
-  defp handle_rejoin(state, player_name, liveview_pid) do
-    case Map.get(state.connections, player_name) do
+  defp handle_rejoin(state, session_token, liveview_pid) do
+    case Map.get(state.connections, session_token) do
       %{timer: timer} when timer != nil ->
         Process.cancel_timer(timer)
         ref = Process.monitor(liveview_pid)
-        connections = Map.put(state.connections, player_name, %{ref: ref, timer: nil})
+
+        connections =
+          Map.update!(state.connections, session_token, fn conn ->
+            %{conn | ref: ref, timer: nil}
+          end)
+
         %{state | connections: connections}
 
       _ ->
@@ -125,11 +135,14 @@ defmodule Parakeet.Den.Table do
   end
 
   defp handle_disconnect(state, ref) do
-    case Enum.find(state.connections, fn {_name, conn} -> conn.ref == ref end) do
-      {player_name, _conn} ->
-        Logger.debug("Player #{player_name} disconnected, grace period: #{@grace_period_ms}ms")
-        timer = Process.send_after(self(), {:evict, player_name}, @grace_period_ms)
-        connections = Map.put(state.connections, player_name, %{ref: nil, timer: timer})
+    case Enum.find(state.connections, fn {_token, conn} -> conn.ref == ref end) do
+      {session_token, conn} ->
+        Logger.debug("Player #{conn.name} disconnected, grace period: #{@grace_period_ms}ms")
+        timer = Process.send_after(self(), {:evict, session_token}, @grace_period_ms)
+
+        connections =
+          Map.put(state.connections, session_token, %{conn | ref: nil, timer: timer})
+
         %{state | connections: connections}
 
       nil ->
@@ -137,12 +150,17 @@ defmodule Parakeet.Den.Table do
     end
   end
 
-  defp handle_evict(state, player_name) do
+  defp handle_evict(state, session_token) do
+    conn = Map.get(state.connections, session_token)
+
     state = %{
       state
-      | player_names: List.delete(state.player_names, player_name),
-        connections: Map.delete(state.connections, player_name)
+      | player_names:
+          if(conn, do: List.delete(state.player_names, conn.name), else: state.player_names),
+        connections: Map.delete(state.connections, session_token)
     }
+
+    Registry.unregister(Parakeet.Den.SessionRegistry, session_token)
 
     if state.player_names == [] do
       {:stop, state}

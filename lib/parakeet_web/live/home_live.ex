@@ -2,8 +2,9 @@ defmodule ParakeetWeb.HomeLive do
   use ParakeetWeb, :live_view
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, assign(socket, form: to_form(%{"name" => ""}))}
+  def mount(_params, session, socket) do
+    name = session["player_name"] || ""
+    {:ok, assign(socket, form: to_form(%{"name" => name}))}
   end
 
   @impl true
@@ -19,7 +20,7 @@ defmodule ParakeetWeb.HomeLive do
 
         <.form
           for={@form}
-          phx-submit="enter"
+          action={~p"/session"}
           id="name-form"
           class="w-full max-w-sm space-y-5"
         >
@@ -41,16 +42,5 @@ defmodule ParakeetWeb.HomeLive do
       </div>
     </Layouts.app>
     """
-  end
-
-  @impl true
-  def handle_event("enter", %{"name" => name}, socket) do
-    name = String.trim(name)
-
-    if name == "" do
-      {:noreply, put_flash(socket, :error, "Enter a name to play")}
-    else
-      {:noreply, push_navigate(socket, to: ~p"/den?name=#{name}")}
-    end
   end
 end

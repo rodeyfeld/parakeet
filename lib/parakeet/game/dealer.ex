@@ -1,4 +1,4 @@
-defmodule Parakeet.Game.Supervisor do
+defmodule Parakeet.Game.Dealer do
   use DynamicSupervisor
 
   def start_link(init_arg) do
