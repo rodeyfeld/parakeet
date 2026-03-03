@@ -277,6 +277,63 @@ defmodule ParakeetWeb.GameComponents do
     """
   end
 
+  attr :event_flash, :map, default: nil
+
+  def event_flash(assigns) do
+    ~H"""
+    <%= if @event_flash do %>
+      <div
+        id="event-flash"
+        class="relative overflow-hidden rounded-xl border px-5 py-4 animate-fade-in-scale"
+        style="animation: fade-in-scale 0.3s ease-out"
+      >
+        <div class={[
+          "absolute inset-0 opacity-20",
+          event_flash_bg(@event_flash.type)
+        ]}>
+        </div>
+        <div class="relative flex items-center gap-3">
+          <div class={[
+            "flex items-center justify-center w-10 h-10 rounded-full text-lg font-bold shrink-0",
+            event_flash_icon_class(@event_flash.type)
+          ]}>
+            {event_flash_icon(@event_flash.type)}
+          </div>
+          <div>
+            <div class={[
+              "text-lg font-bold tracking-tight",
+              event_flash_text_class(@event_flash.type)
+            ]}>
+              {@event_flash.label}
+            </div>
+            <div class="text-sm text-zinc-400">{@event_flash.detail}</div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
+
+  defp event_flash_bg(:slap), do: "bg-gradient-to-r from-amber-500 to-orange-500"
+  defp event_flash_bg(:challenge_win), do: "bg-gradient-to-r from-emerald-500 to-teal-500"
+  defp event_flash_bg(_), do: "bg-gradient-to-r from-zinc-500 to-zinc-600"
+
+  defp event_flash_icon(:slap), do: "✋"
+  defp event_flash_icon(:challenge_win), do: "👑"
+  defp event_flash_icon(_), do: "⚡"
+
+  defp event_flash_icon_class(:slap),
+    do: "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+
+  defp event_flash_icon_class(:challenge_win),
+    do: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+
+  defp event_flash_icon_class(_), do: "bg-zinc-500/20 text-zinc-300 border border-zinc-500/30"
+
+  defp event_flash_text_class(:slap), do: "text-amber-300"
+  defp event_flash_text_class(:challenge_win), do: "text-emerald-300"
+  defp event_flash_text_class(_), do: "text-zinc-200"
+
   attr :card, :map, required: true
   attr :top, :boolean, default: false
 

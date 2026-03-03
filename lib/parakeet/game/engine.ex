@@ -15,6 +15,7 @@ defmodule Parakeet.Game.Engine do
     :challenge_card,
     :current_player_idx,
     :winner,
+    :slap_type,
     status: :running
   ]
 
@@ -234,7 +235,7 @@ defmodule Parakeet.Game.Engine do
       end)
 
     pile = CardStack.push_top(state.pile, card)
-    state = %{state | players: players, pile: pile}
+    state = %{state | players: players, pile: pile, slap_type: nil}
 
     state =
       cond do
@@ -279,7 +280,7 @@ defmodule Parakeet.Game.Engine do
       end)
 
     penalty_pile = CardStack.push_bottom_n(state.penalty_pile, penalty_stack)
-    state = %{state | players: players, penalty_pile: penalty_pile}
+    state = %{state | players: players, penalty_pile: penalty_pile, slap_type: nil}
 
     if CardStack.count(new_hand) == 0 do
       Logger.debug("handle_slap_penalty: #{player.name} lost all cards — eliminated")
@@ -348,7 +349,7 @@ defmodule Parakeet.Game.Engine do
     }
   end
 
-  defp handle_slap_success(state, slapper_idx) do
+  defp handle_slap_success(state, slapper_idx, slap_type) do
     slapper = Enum.at(state.players, slapper_idx)
 
     Logger.debug(
@@ -373,7 +374,8 @@ defmodule Parakeet.Game.Engine do
         penalty_pile: empty_pen,
         current_player_idx: slapper_idx,
         chances: 0,
-        challenge_card: nil
+        challenge_card: nil,
+        slap_type: slap_type
     }
   end
 
@@ -386,13 +388,20 @@ defmodule Parakeet.Game.Engine do
     else
       Logger.debug("handle_slap: player #{slapper_idx} (#{slapper.name}) attempts slap")
 
-      case Slap.slap_type(state.pile) do
+      slap_type = Slap.slap_type(state.pile)
+
+      case slap_type do
         :no_slap -> handle_slap_penalty(state, slapper_idx)
-        _slap_type -> handle_slap_success(state, slapper_idx)
+        _ -> handle_slap_success(state, slapper_idx, slap_type)
       end
     end
   end
 
+  @spec handle_turn(%{
+          :players => list(),
+          optional(:current_player_idx) => integer(),
+          optional(any()) => any()
+        }) :: %{:players => list(), optional(any()) => any()}
   def handle_turn(state) do
     player = Enum.at(state.players, state.current_player_idx)
 

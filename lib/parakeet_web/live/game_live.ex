@@ -6,6 +6,8 @@ defmodule ParakeetWeb.GameLive do
 
   import ParakeetWeb.GameComponents
 
+  @event_flash_ms 2_500
+
   @impl true
   def mount(%{"code" => code} = params, _session, socket) do
     player_name = params["name"]
@@ -38,7 +40,9 @@ defmodule ParakeetWeb.GameLive do
                game: game,
                player_name: player_name,
                player_idx: player_idx,
-               log: ["Game started!"]
+               log: ["Game started!"],
+               event_flash: nil,
+               event_flash_ref: nil
              )}
         end
 
@@ -79,6 +83,8 @@ defmodule ParakeetWeb.GameLive do
             <.game_controls game={@game} player_idx={@player_idx} />
           <% end %>
 
+          <.event_flash event_flash={@event_flash} />
+
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <.player_card
               :for={{player, idx} <- Enum.with_index(@game.players)}
@@ -107,18 +113,30 @@ defmodule ParakeetWeb.GameLive do
 
     msgs = ["#{old_player.name} plays #{format_card(played_card)}"]
 
-    msgs =
+    {msgs, event_flash} =
       if CardStack.count(old_game.pile) > 0 and CardStack.count(game.pile) == 0 do
         collector = Enum.at(game.players, game.current_player_idx)
-        msgs ++ ["── New round ── #{collector.name} collects the pile"]
+
+        flash = %{
+          type: :challenge_win,
+          label: "Challenge won!",
+          detail: "#{collector.name} collects the pile"
+        }
+
+        {msgs ++ ["── New round ── #{collector.name} collects the pile"], flash}
       else
-        msgs
+        {msgs, nil}
       end
 
-    for msg <- msgs, do: broadcast_game_update(socket.assigns.code, game, msg)
+    for msg <- msgs, do: broadcast_game_update(socket.assigns.code, game, msg, event_flash)
     maybe_notify_game_over(socket, game)
 
-    {:noreply, assign(socket, game: game, log: socket.assigns.log ++ msgs)}
+    socket =
+      socket
+      |> assign(game: game, log: socket.assigns.log ++ msgs)
+      |> set_event_flash(event_flash)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -131,25 +149,60 @@ defmodule ParakeetWeb.GameLive do
     old_count = CardStack.count(player.hand)
     new_count = CardStack.count(slapped_player.hand)
 
-    msgs =
+    {msgs, event_flash} =
       if new_count > old_count do
-        [
-          "#{player.name} slapped! Won the pile! (#{old_count} → #{new_count} cards)",
-          "── New round ── #{player.name} starts"
-        ]
+        label = slap_label(game.slap_type)
+
+        flash = %{
+          type: :slap,
+          label: String.capitalize(label),
+          detail: "#{player.name} wins the pile!"
+        }
+
+        {[
+           "#{player.name} slapped #{label}! Won the pile! (#{old_count} → #{new_count} cards)",
+           "── New round ── #{player.name} starts"
+         ], flash}
       else
-        ["#{player.name} bad slap! Lost 2 cards (#{old_count} → #{new_count} cards)"]
+        {["#{player.name} bad slap! Lost 2 cards (#{old_count} → #{new_count} cards)"], nil}
       end
 
-    for msg <- msgs, do: broadcast_game_update(socket.assigns.code, game, msg)
+    for msg <- msgs, do: broadcast_game_update(socket.assigns.code, game, msg, event_flash)
     maybe_notify_game_over(socket, game)
 
-    {:noreply, assign(socket, game: game, log: socket.assigns.log ++ msgs)}
+    socket =
+      socket
+      |> assign(game: game, log: socket.assigns.log ++ msgs)
+      |> set_event_flash(event_flash)
+
+    {:noreply, socket}
   end
 
   @impl true
+  def handle_info({:game_update, game, msg, event_flash}, socket) do
+    socket =
+      socket
+      |> assign(game: game, log: socket.assigns.log ++ [msg])
+      |> set_event_flash(event_flash)
+
+    {:noreply, socket}
+  end
+
   def handle_info({:game_update, game, msg}, socket) do
     {:noreply, assign(socket, game: game, log: socket.assigns.log ++ [msg])}
+  end
+
+  @impl true
+  def handle_info(:clear_event_flash, socket) do
+    {:noreply, assign(socket, event_flash: nil, event_flash_ref: nil)}
+  end
+
+  defp set_event_flash(socket, nil), do: socket
+
+  defp set_event_flash(socket, flash) do
+    if ref = socket.assigns.event_flash_ref, do: Process.cancel_timer(ref)
+    ref = Process.send_after(self(), :clear_event_flash, @event_flash_ms)
+    assign(socket, event_flash: flash, event_flash_ref: ref)
   end
 
   defp maybe_notify_game_over(socket, game) do
@@ -158,12 +211,19 @@ defmodule ParakeetWeb.GameLive do
     end
   end
 
-  defp broadcast_game_update(code, game, msg) do
+  defp broadcast_game_update(code, game, msg, event_flash) do
     Phoenix.PubSub.broadcast_from(
       Parakeet.PubSub,
       self(),
       "game:#{code}",
-      {:game_update, game, msg}
+      {:game_update, game, msg, event_flash}
     )
   end
+
+  defp slap_label(:doubles), do: "doubles"
+  defp slap_label(:sandwich), do: "sandwich"
+  defp slap_label(:three_in_order), do: "three in order"
+  defp slap_label(:queen_king), do: "queen-king"
+  defp slap_label(:add_to_ten), do: "adds to ten"
+  defp slap_label(_), do: ""
 end
