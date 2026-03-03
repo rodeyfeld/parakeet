@@ -76,7 +76,7 @@ defmodule ParakeetWeb.DenComponents do
             name="table_name"
             value=""
             label="Table Name"
-            placeholder="Friday Night Cards"
+            placeholder=""
           />
           <button
             type="submit"

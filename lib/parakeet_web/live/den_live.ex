@@ -129,6 +129,7 @@ defmodule ParakeetWeb.DenLive do
 
   @impl true
   def handle_event("leave_table", _params, socket) do
+    if socket.assigns.pid, do: Table.leave(socket.assigns.pid, socket.assigns.session_token)
     {:noreply, assign(socket, pid: nil, table: nil, tables: PitBoss.list_tables())}
   end
 

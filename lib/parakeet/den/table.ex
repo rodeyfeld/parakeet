@@ -35,6 +35,9 @@ defmodule Parakeet.Den.Table do
   def rejoin(pid, session_token, liveview_pid),
     do: GenServer.call(pid, {:rejoin, session_token, liveview_pid})
 
+  def leave(pid, session_token),
+    do: GenServer.call(pid, {:leave, session_token})
+
   def update_game_status(pid, status),
     do: GenServer.cast(pid, {:update_game_status, status})
 
@@ -59,6 +62,17 @@ defmodule Parakeet.Den.Table do
   def handle_call({:rejoin, session_token, liveview_pid}, _from, state) do
     new_state = handle_rejoin(state, session_token, liveview_pid)
     {:reply, new_state, new_state}
+  end
+
+  @impl true
+  def handle_call({:leave, session_token}, _from, state) do
+    case handle_leave(state, session_token) do
+      {:stop, new_state} ->
+        {:stop, :normal, :ok, new_state}
+
+      {:ok, new_state} ->
+        {:reply, :ok, new_state}
+    end
   end
 
   @impl true
@@ -131,6 +145,26 @@ defmodule Parakeet.Den.Table do
 
       _ ->
         state
+    end
+  end
+
+  defp handle_leave(state, session_token) do
+    case Map.get(state.connections, session_token) do
+      nil ->
+        {:ok, state}
+
+      conn ->
+        if conn.ref, do: Process.demonitor(conn.ref, [:flush])
+        if conn.timer, do: Process.cancel_timer(conn.timer)
+        Registry.unregister(Parakeet.Den.SessionRegistry, session_token)
+
+        state = %{
+          state
+          | player_names: List.delete(state.player_names, conn.name),
+            connections: Map.delete(state.connections, session_token)
+        }
+
+        if state.player_names == [], do: {:stop, state}, else: {:ok, state}
     end
   end
 
