@@ -31,7 +31,7 @@ defmodule ParakeetWeb.GameComponents do
         <span class="flex items-center gap-2">
           <.icon
             name="hero-book-open"
-            class="w-4 h-4 text-zinc-500 group-open:text-amber-400 transition-colors"
+            class="w-4 h-4 text-zinc-500 group-open:text-emerald-400 transition-colors"
           /> How to Play
         </span>
         <.icon
@@ -85,8 +85,8 @@ defmodule ParakeetWeb.GameComponents do
 
   def game_over_banner(assigns) do
     ~H"""
-    <div class="rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-900/30 to-yellow-900/20 p-6 text-center space-y-3">
-      <div class="text-4xl font-black tracking-tight text-amber-300">Game Over</div>
+    <div class="rounded-xl border border-emerald-500/50 bg-gradient-to-r from-emerald-900/30 to-green-900/20 p-6 text-center space-y-3">
+      <div class="text-4xl font-black tracking-tight text-emerald-300">Game Over</div>
       <div class="text-xl text-zinc-200">
         <span class="font-bold text-white">{@winner}</span> wins!
       </div>
