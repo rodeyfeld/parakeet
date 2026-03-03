@@ -397,11 +397,6 @@ defmodule Parakeet.Game.Engine do
     end
   end
 
-  @spec handle_turn(%{
-          :players => list(),
-          optional(:current_player_idx) => integer(),
-          optional(any()) => any()
-        }) :: %{:players => list(), optional(any()) => any()}
   def handle_turn(state) do
     player = Enum.at(state.players, state.current_player_idx)
 
