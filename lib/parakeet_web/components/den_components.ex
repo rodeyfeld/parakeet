@@ -65,6 +65,44 @@ defmodule ParakeetWeb.DenComponents do
     """
   end
 
+  attr :table, :map, required: true
+
+  def active_table_banner(assigns) do
+    ~H"""
+    <div class="rounded-xl border border-emerald-700/50 bg-emerald-900/20 p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="space-y-1">
+          <div class="text-xs uppercase tracking-wider text-emerald-400 font-semibold">Active Table</div>
+          <h2 class="text-lg font-bold">{@table.name}</h2>
+        </div>
+        <div class="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 border border-zinc-700">
+          <span class="text-xs uppercase tracking-wider text-zinc-400">Code</span>
+          <span class="font-mono font-bold tracking-widest">{@table.code}</span>
+        </div>
+      </div>
+      <div class="text-sm text-zinc-400">
+        {length(@table.player_names)} players: {Enum.join(@table.player_names, ", ")}
+      </div>
+      <div class="flex gap-3">
+        <button
+          phx-click="rejoin_table"
+          id="rejoin-table-btn"
+          class="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-95"
+        >
+          Rejoin
+        </button>
+        <button
+          phx-click="leave_table"
+          id="leave-active-table-btn"
+          class="rounded-lg border border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
+        >
+          Leave
+        </button>
+      </div>
+    </div>
+    """
+  end
+
   def create_join_forms(assigns) do
     ~H"""
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

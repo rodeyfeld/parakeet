@@ -26,7 +26,7 @@ defmodule ParakeetWeb.DenLive do
           session_token: session_token,
           tables: PitBoss.list_tables()
         )
-        |> maybe_rejoin_table()
+        |> check_active_table()
 
       {:ok, socket}
     end
@@ -56,6 +56,9 @@ defmodule ParakeetWeb.DenLive do
         <%= if @table do %>
           <.waiting_room table={@table} />
         <% else %>
+          <%= if @active_table do %>
+            <.active_table_banner table={@active_table} />
+          <% end %>
           <.create_join_forms />
           <.open_tables tables={@tables} />
         <% end %>
@@ -71,15 +74,10 @@ defmodule ParakeetWeb.DenLive do
     cond do
       socket.assigns.pid != nil ->
         table = Table.get_state(socket.assigns.pid)
-
-        if table.engine_pid != nil do
-          {:noreply, push_navigate(socket, to: ~p"/game/#{table.code}")}
-        else
-          {:noreply, assign(socket, table: table)}
-        end
+        {:noreply, assign(socket, table: table)}
 
       true ->
-        {:noreply, assign(socket, tables: PitBoss.list_tables())}
+        {:noreply, socket |> assign(tables: PitBoss.list_tables()) |> check_active_table()}
     end
   end
 
@@ -87,36 +85,44 @@ defmodule ParakeetWeb.DenLive do
 
   @impl true
   def handle_event("create_table", %{"table_name" => table_name}, socket) do
-    case PitBoss.start_table(
-           socket.assigns.session_token,
-           socket.assigns.player_name,
-           table_name,
-           self()
-         ) do
-      {:ok, pid} ->
-        table = Table.get_state(pid)
+    if socket.assigns.active_table do
+      {:noreply, put_flash(socket, :error, "Leave your current table first")}
+    else
+      case PitBoss.start_table(
+             socket.assigns.session_token,
+             socket.assigns.player_name,
+             table_name,
+             self()
+           ) do
+        {:ok, pid} ->
+          table = Table.get_state(pid)
 
-        {:noreply,
-         socket
-         |> assign(pid: pid, table: table, tables: PitBoss.list_tables())}
+          {:noreply,
+           socket
+           |> assign(pid: pid, table: table, active_table: nil, tables: PitBoss.list_tables())}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to create table: #{inspect(reason)}")}
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to create table: #{inspect(reason)}")}
+      end
     end
   end
 
   @impl true
   def handle_event("join_table", %{"code" => code}, socket) do
-    case PitBoss.find_table(code) do
-      {:ok, pid} ->
-        table = Table.join(pid, socket.assigns.session_token, socket.assigns.player_name, self())
+    if socket.assigns.active_table do
+      {:noreply, put_flash(socket, :error, "Leave your current table first")}
+    else
+      case PitBoss.find_table(code) do
+        {:ok, pid} ->
+          table = Table.join(pid, socket.assigns.session_token, socket.assigns.player_name, self())
 
-        {:noreply,
-         socket
-         |> assign(pid: pid, table: table)}
+          {:noreply,
+           socket
+           |> assign(pid: pid, table: table, active_table: nil)}
 
-      :not_found ->
-        {:noreply, put_flash(socket, :error, "Table not found: #{code}")}
+        :not_found ->
+          {:noreply, put_flash(socket, :error, "Table not found: #{code}")}
+      end
     end
   end
 
@@ -128,9 +134,24 @@ defmodule ParakeetWeb.DenLive do
   end
 
   @impl true
+  def handle_event("rejoin_table", _params, socket) do
+    case PitBoss.find_table_by_token(socket.assigns.session_token) do
+      {:ok, pid} ->
+        table = Table.rejoin(pid, socket.assigns.session_token, self())
+        {:noreply, assign(socket, pid: pid, table: table, active_table: nil)}
+
+      :not_found ->
+        {:noreply, assign(socket, active_table: nil)}
+    end
+  end
+
+  @impl true
   def handle_event("leave_table", _params, socket) do
-    if socket.assigns.pid, do: Table.leave(socket.assigns.pid, socket.assigns.session_token)
-    {:noreply, assign(socket, pid: nil, table: nil, tables: PitBoss.list_tables())}
+    pid = socket.assigns.pid || socket.assigns[:active_table_pid]
+    if pid, do: Table.leave(pid, socket.assigns.session_token)
+
+    {:noreply,
+     assign(socket, pid: nil, table: nil, active_table: nil, active_table_pid: nil, tables: PitBoss.list_tables())}
   end
 
   @impl true
@@ -138,18 +159,18 @@ defmodule ParakeetWeb.DenLive do
     {:noreply, assign(socket, tables: PitBoss.list_tables())}
   end
 
-  defp maybe_rejoin_table(socket) do
+  defp check_active_table(socket) do
     if connected?(socket) do
       case PitBoss.find_table_by_token(socket.assigns.session_token) do
         {:ok, pid} ->
-          table = Table.rejoin(pid, socket.assigns.session_token, self())
-          assign(socket, pid: pid, table: table)
+          table = Table.get_state(pid)
+          assign(socket, active_table: table, active_table_pid: pid)
 
         :not_found ->
-          socket
+          assign(socket, active_table: nil, active_table_pid: nil)
       end
     else
-      socket
+      assign(socket, active_table: nil, active_table_pid: nil)
     end
   end
 end
