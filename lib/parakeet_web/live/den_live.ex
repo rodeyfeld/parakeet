@@ -4,6 +4,7 @@ defmodule ParakeetWeb.DenLive do
   alias Parakeet.Den.{PitBoss, Table}
 
   import ParakeetWeb.DenComponents
+  import ParakeetWeb.LobbyComponents
 
   @refresh_interval_ms 3_000
 
@@ -24,9 +25,10 @@ defmodule ParakeetWeb.DenLive do
           table: nil,
           player_name: player_name,
           session_token: session_token,
-          tables: PitBoss.list_tables()
+          tables: []
         )
         |> check_active_table()
+        |> then(fn s -> assign(s, tables: PitBoss.list_tables()) end)
 
       {:ok, socket}
     end
@@ -71,13 +73,19 @@ defmodule ParakeetWeb.DenLive do
   def handle_info(:refresh, socket) do
     schedule_refresh()
 
-    cond do
-      socket.assigns.pid != nil ->
+    if socket.assigns.pid != nil do
+      try do
         table = Table.get_state(socket.assigns.pid)
         {:noreply, assign(socket, table: table)}
-
-      true ->
-        {:noreply, socket |> assign(tables: PitBoss.list_tables()) |> check_active_table()}
+      catch
+        :exit, _ ->
+          {:noreply,
+           socket
+           |> assign(pid: nil, table: nil, tables: PitBoss.list_tables())
+           |> check_active_table()}
+      end
+    else
+      {:noreply, socket |> assign(tables: PitBoss.list_tables()) |> check_active_table()}
     end
   end
 
@@ -137,7 +145,7 @@ defmodule ParakeetWeb.DenLive do
   def handle_event("rejoin_table", _params, socket) do
     case PitBoss.find_table_by_token(socket.assigns.session_token) do
       {:ok, pid} ->
-        table = Table.rejoin(pid, socket.assigns.session_token, self())
+        table = Table.rejoin(pid, socket.assigns.session_token, socket.assigns.player_name, self())
         {:noreply, assign(socket, pid: pid, table: table, active_table: nil)}
 
       :not_found ->
@@ -163,8 +171,18 @@ defmodule ParakeetWeb.DenLive do
     if connected?(socket) do
       case PitBoss.find_table_by_token(socket.assigns.session_token) do
         {:ok, pid} ->
-          table = Table.get_state(pid)
-          assign(socket, active_table: table, active_table_pid: pid)
+          try do
+            table = Table.get_state(pid)
+
+            if table.engine_pid != nil do
+              assign(socket, active_table: table, active_table_pid: pid)
+            else
+              Table.leave(pid, socket.assigns.session_token)
+              assign(socket, active_table: nil, active_table_pid: nil)
+            end
+          catch
+            :exit, _ -> assign(socket, active_table: nil, active_table_pid: nil)
+          end
 
         :not_found ->
           assign(socket, active_table: nil, active_table_pid: nil)

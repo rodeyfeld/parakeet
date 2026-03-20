@@ -1,6 +1,6 @@
 defmodule Parakeet.Den.Table do
   require Logger
-  use GenServer
+  use GenServer, restart: :temporary
 
   @grace_period_ms 30_000
 
@@ -32,8 +32,8 @@ defmodule Parakeet.Den.Table do
   def join(pid, session_token, player_name, liveview_pid),
     do: GenServer.call(pid, {:join, session_token, player_name, liveview_pid})
 
-  def rejoin(pid, session_token, liveview_pid),
-    do: GenServer.call(pid, {:rejoin, session_token, liveview_pid})
+  def rejoin(pid, session_token, player_name, liveview_pid),
+    do: GenServer.call(pid, {:rejoin, session_token, player_name, liveview_pid})
 
   def leave(pid, session_token),
     do: GenServer.call(pid, {:leave, session_token})
@@ -61,8 +61,8 @@ defmodule Parakeet.Den.Table do
   end
 
   @impl true
-  def handle_call({:rejoin, session_token, liveview_pid}, _from, state) do
-    new_state = handle_rejoin(state, session_token, liveview_pid)
+  def handle_call({:rejoin, session_token, player_name, liveview_pid}, _from, state) do
+    new_state = handle_rejoin(state, session_token, player_name, liveview_pid)
     {:reply, to_map(new_state), new_state}
   end
 
@@ -84,7 +84,14 @@ defmodule Parakeet.Den.Table do
 
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
-    {:noreply, handle_disconnect(state, ref)}
+    state = handle_disconnect(state, ref)
+
+    if state.engine_pid == nil and Enum.all?(state.players, fn {_, p} -> p.timer != nil end) do
+      Logger.info("Table #{state.code} has no connected players, shutting down")
+      {:stop, :normal, state}
+    else
+      {:noreply, state}
+    end
   end
 
   @impl true
@@ -132,12 +139,15 @@ defmodule Parakeet.Den.Table do
     %{state | players: players}
   end
 
-  defp handle_rejoin(state, session_token, liveview_pid) do
+  defp handle_rejoin(state, session_token, player_name, liveview_pid) do
     case Map.get(state.players, session_token) do
       %{timer: timer} = player when timer != nil ->
         Process.cancel_timer(timer)
         ref = Process.monitor(liveview_pid)
-        players = Map.put(state.players, session_token, %{player | ref: ref, timer: nil})
+
+        players =
+          Map.put(state.players, session_token, %{player | name: player_name, ref: ref, timer: nil})
+
         %{state | players: players}
 
       _ ->
@@ -153,7 +163,7 @@ defmodule Parakeet.Den.Table do
         players = Map.put(state.players, session_token, %{player | ref: nil, timer: timer})
 
         %{state | players: players}
-        |> maybe_reassign_host(session_token)
+        |> reassign_host(session_token)
 
       nil ->
         state
@@ -176,15 +186,17 @@ defmodule Parakeet.Den.Table do
     end
   end
 
-  defp maybe_reassign_host(%{host: host} = state, removed_token) when host == removed_token do
+  defp reassign_host(%{host: host} = state, removed_token) when host == removed_token do
     new_host = state.players |> Map.keys() |> Enum.random()
     %{state | host: new_host}
   end
 
-  defp maybe_reassign_host(state, _removed_token), do: state
+  defp reassign_host(state, _removed_token), do: state
 
   defp player_names(state) do
-    Enum.map(state.players, fn {_token, p} -> p.name end)
+    state.players
+    |> Enum.reject(fn {_token, p} -> p.timer != nil end)
+    |> Enum.map(fn {_token, p} -> p.name end)
   end
 
   defp to_map(state) do

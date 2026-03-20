@@ -35,8 +35,15 @@ defmodule Parakeet.Den.PitBoss do
 
   def list_tables do
     DynamicSupervisor.which_children(__MODULE__)
-    |> Enum.map(fn {_, pid, _, _} ->
-      Parakeet.Den.Table.get_state(pid)
+    |> Enum.flat_map(fn {_, pid, _, _} ->
+      try do
+        case Parakeet.Den.Table.get_state(pid) do
+          %{player_names: []} -> []
+          table -> [table]
+        end
+      catch
+        :exit, _ -> []
+      end
     end)
     |> Enum.reverse()
   end
