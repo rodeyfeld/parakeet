@@ -40,7 +40,7 @@ defmodule ParakeetWeb.DenLive do
     <Layouts.app flash={@flash}>
       <div class="max-w-2xl mx-auto space-y-8">
         <div class="flex items-center justify-between">
-          <h1 class="text-3xl font-bold tracking-tight">The Den</h1>
+          <h1 class="text-3xl font-bold tracking-tight">Tables</h1>
           <div class="flex items-center gap-3">
             <span class="text-sm text-zinc-400">
               Playing as <span class="font-semibold text-white">{@player_name}</span>
@@ -76,7 +76,12 @@ defmodule ParakeetWeb.DenLive do
     if socket.assigns.pid != nil do
       try do
         table = Table.get_state(socket.assigns.pid)
-        {:noreply, assign(socket, table: table)}
+
+        if table.engine_pid != nil do
+          {:noreply, push_navigate(socket, to: ~p"/game/#{table.code}")}
+        else
+          {:noreply, assign(socket, table: table)}
+        end
       catch
         :exit, _ ->
           {:noreply,

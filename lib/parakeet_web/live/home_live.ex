@@ -13,7 +13,7 @@ defmodule ParakeetWeb.HomeLive do
     <Layouts.app flash={@flash}>
       <div class="flex flex-col items-center justify-center min-h-[60vh] space-y-10">
         <div class="text-center space-y-3">
-          <h1 class="text-5xl font-black tracking-tight bg-gradient-to-r from-green-300 via-emerald-400 to-teal-500 bg-clip-text text-transparent">
+          <h1 class="text-5xl font-black tracking-tight text-emerald-400">
             Parakeet
           </h1>
         </div>

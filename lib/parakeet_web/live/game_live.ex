@@ -27,15 +27,21 @@ defmodule ParakeetWeb.GameLive do
              |> push_navigate(to: ~p"/den")}
 
           true ->
-            if connected?(socket), do: Phoenix.PubSub.subscribe(Parakeet.PubSub, "game:#{code}")
+            session_token = session["session_token"]
+
+            if connected?(socket) do
+              Phoenix.PubSub.subscribe(Parakeet.PubSub, "game:#{code}")
+              Table.rejoin(table_pid, session_token, player_name, self())
+            end
 
             game = Engine.get_state(table.engine_pid)
-            player_idx = Enum.find_index(game.players, fn p -> p.name == player_name end)
+            player_idx = Table.engine_idx(table_pid, session_token)
 
             {:ok,
              assign(socket,
                code: code,
                table_pid: table_pid,
+               session_token: session_token,
                engine_pid: table.engine_pid,
                game: game,
                player_name: player_name,
@@ -65,12 +71,13 @@ defmodule ParakeetWeb.GameLive do
             <span class="text-sm text-zinc-400">
               Playing as <span class="font-semibold text-white">{@player_name}</span>
             </span>
-            <.link
-              navigate={~p"/den"}
+            <button
+              phx-click="leave_game"
+              id="leave-game-btn"
               class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
             >
               Leave Game
-            </.link>
+            </button>
           </div>
         </div>
 
@@ -176,6 +183,12 @@ defmodule ParakeetWeb.GameLive do
       |> set_event_flash(event_flash)
 
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("leave_game", _params, socket) do
+    Table.leave(socket.assigns.table_pid, socket.assigns.session_token)
+    {:noreply, push_navigate(socket, to: ~p"/den")}
   end
 
   @impl true

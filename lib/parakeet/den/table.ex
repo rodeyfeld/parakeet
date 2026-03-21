@@ -38,6 +38,9 @@ defmodule Parakeet.Den.Table do
   def leave(pid, session_token),
     do: GenServer.call(pid, {:leave, session_token})
 
+  def engine_idx(pid, session_token),
+    do: GenServer.call(pid, {:engine_idx, session_token})
+
   def update_game_status(pid, status),
     do: GenServer.cast(pid, {:update_game_status, status})
 
@@ -75,6 +78,12 @@ defmodule Parakeet.Den.Table do
       {:ok, new_state} ->
         {:reply, :ok, new_state}
     end
+  end
+
+  @impl true
+  def handle_call({:engine_idx, session_token}, _from, state) do
+    player = Map.get(state.players, session_token)
+    {:reply, if(player, do: player.engine_idx), state}
   end
 
   @impl true
@@ -120,13 +129,27 @@ defmodule Parakeet.Den.Table do
       name: table_name,
       code: code,
       host: session_token,
-      players: %{session_token => %{name: player_name, ref: ref, timer: nil}}
+      players: %{session_token => %{name: player_name, engine_idx: nil, ref: ref, timer: nil}}
     }
   end
 
   defp start_engine(state) do
-    {:ok, engine_pid} = Parakeet.Game.Dealer.start_game(player_names(state))
-    %{state | engine_pid: engine_pid, game_status: :running}
+    names = player_names(state)
+    {:ok, engine_pid} = Parakeet.Game.Dealer.start_game(names)
+
+    token_to_idx =
+      state.players
+      |> Enum.reject(fn {_token, p} -> p.timer != nil end)
+      |> Enum.map(fn {token, _p} -> token end)
+      |> Enum.with_index()
+      |> Map.new()
+
+    players =
+      Map.new(state.players, fn {token, p} ->
+        {token, %{p | engine_idx: Map.get(token_to_idx, token)}}
+      end)
+
+    %{state | engine_pid: engine_pid, game_status: :running, players: players}
   end
 
   defp handle_join(state, session_token, player_name, liveview_pid) do
@@ -134,7 +157,7 @@ defmodule Parakeet.Den.Table do
     Registry.register(Parakeet.Den.SessionRegistry, session_token, state.code)
 
     players =
-      Map.put(state.players, session_token, %{name: player_name, ref: ref, timer: nil})
+      Map.put(state.players, session_token, %{name: player_name, engine_idx: nil, ref: ref, timer: nil})
 
     %{state | players: players}
   end
@@ -180,6 +203,21 @@ defmodule Parakeet.Den.Table do
         if player.timer, do: Process.cancel_timer(player.timer)
         Registry.unregister(Parakeet.Den.SessionRegistry, session_token)
 
+        state =
+          if state.engine_pid && player.engine_idx do
+            game = Parakeet.Game.Engine.forfeit(state.engine_pid, player.engine_idx)
+
+            Phoenix.PubSub.broadcast(
+              Parakeet.PubSub,
+              "game:#{state.code}",
+              {:game_update, game, "#{player.name} left the game", nil}
+            )
+
+            if game.status == :finished, do: %{state | game_status: :finished}, else: state
+          else
+            state
+          end
+
         state = %{state | players: remaining}
 
         if remaining == %{}, do: {:stop, state}, else: {:ok, state}
@@ -194,9 +232,14 @@ defmodule Parakeet.Den.Table do
   defp reassign_host(state, _removed_token), do: state
 
   defp player_names(state) do
-    state.players
-    |> Enum.reject(fn {_token, p} -> p.timer != nil end)
-    |> Enum.map(fn {_token, p} -> p.name end)
+    players =
+      if state.engine_pid == nil do
+        Enum.reject(state.players, fn {_token, p} -> p.timer != nil end)
+      else
+        state.players
+      end
+
+    Enum.map(players, fn {_token, p} -> p.name end)
   end
 
   defp to_map(state) do

@@ -26,6 +26,7 @@ defmodule Parakeet.Game.Engine do
   def get_state(pid), do: GenServer.call(pid, :get_state)
   def play_turn(pid), do: GenServer.call(pid, :play_turn)
   def slap(pid, player_idx), do: GenServer.call(pid, {:slap, player_idx})
+  def forfeit(pid, player_idx), do: GenServer.call(pid, {:forfeit, player_idx})
 
   @impl true
   def handle_call(:play_turn, _from, %{status: :finished} = state) do
@@ -49,6 +50,16 @@ defmodule Parakeet.Game.Engine do
 
   def handle_call({:slap, player_idx}, _from, state) do
     new_state = handle_slap(state, player_idx)
+    {:reply, new_state, new_state}
+  end
+
+  @impl true
+  def handle_call({:forfeit, _player_idx}, _from, %{status: :finished} = state) do
+    {:reply, state, state}
+  end
+
+  def handle_call({:forfeit, player_idx}, _from, state) do
+    new_state = handle_forfeit(state, player_idx)
     {:reply, new_state, new_state}
   end
 
@@ -173,6 +184,48 @@ defmodule Parakeet.Game.Engine do
 
       true ->
         state
+    end
+  end
+
+  defp handle_forfeit(state, idx) do
+    player = Enum.at(state.players, idx)
+
+    if player == nil or not player.alive do
+      state
+    else
+      Logger.info("#{player.name} forfeited")
+
+      pile = CardStack.push_bottom_n(state.pile, player.hand)
+
+      players =
+        List.update_at(state.players, idx, fn %Player{} = p ->
+          %Player{p | alive: false, hand: %CardStack{cards: []}}
+        end)
+
+      state = %{state | players: players, pile: pile}
+      state = check_game_over(state)
+
+      cond do
+        state.status == :finished ->
+          state
+
+        state.current_player_idx == idx ->
+          %{state | current_player_idx: get_next_alive_player_idx(state, idx)}
+
+        state.challenger_idx == idx ->
+          next_idx = get_next_alive_player_idx(state, idx)
+
+          %{
+            state
+            | challenger_idx: nil,
+              chances: 0,
+              challenge_card: nil,
+              current_player_idx: next_idx
+          }
+
+        true ->
+          state
+      end
     end
   end
 
