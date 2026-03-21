@@ -64,47 +64,40 @@ defmodule ParakeetWeb.GameLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <div class="space-y-6">
+      <div class="flex flex-col gap-4">
         <div class="flex items-center justify-between">
-          <h1 class="text-3xl font-bold tracking-tight">Parakeet</h1>
-          <div class="flex items-center gap-3">
-            <span class="text-sm text-zinc-400">
-              Playing as <span class="font-semibold text-white">{@player_name}</span>
-            </span>
-            <button
-              phx-click="leave_game"
-              id="leave-game-btn"
-              class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
-            >
-              Leave Game
-            </button>
-          </div>
+          <h1 class="text-2xl font-bold tracking-tight">Parakeet</h1>
+          <button
+            phx-click="leave_game"
+            id="leave-game-btn"
+            class="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
+          >
+            Leave
+          </button>
         </div>
 
-        <.game_rules />
+        <div class="flex justify-center gap-4 flex-wrap">
+          <.parrot_avatar
+            :for={{player, idx} <- Enum.with_index(@game.players)}
+            player={player}
+            idx={idx}
+            current_player_idx={@game.current_player_idx}
+            player_idx={@player_idx}
+          />
+        </div>
 
-        <div class="space-y-6">
-          <%= if @game.status == :finished do %>
-            <.game_over_banner winner={@game.winner} />
-          <% else %>
-            <.game_controls game={@game} player_idx={@player_idx} />
-          <% end %>
-
-          <.event_flash event_flash={@event_flash} />
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <.player_card
-              :for={{player, idx} <- Enum.with_index(@game.players)}
-              player={player}
-              idx={idx}
-              current_player_idx={@game.current_player_idx}
-              player_idx={@player_idx}
-            />
+        <%= if @game.status == :finished do %>
+          <.game_over_banner winner={@game.winner} />
+        <% else %>
+          <div class="flex flex-col items-center gap-4">
             <.pile game={@game} />
+            <.event_flash event_flash={@event_flash} />
+            <.game_controls game={@game} player_idx={@player_idx} />
           </div>
+        <% end %>
 
-          <.game_log log={@log} />
-        </div>
+        <.game_log log={@log} />
+        <.game_rules />
       </div>
     </Layouts.app>
     """
