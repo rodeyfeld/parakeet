@@ -103,11 +103,9 @@ defmodule ParakeetWeb.GameComponents do
       |> Enum.map(fn {card, i} ->
         seed = {pile_size - i, card.face, card.suit, Map.get(card, :value, 0)}
         angle = rem(:erlang.phash2(seed), 360)
-        x_off = rem(:erlang.phash2({seed, :x}), 25) - 12
-        y_off = rem(:erlang.phash2({seed, :y}), 25) - 12
         scale = 1.0 + i * 0.08
         z = 10 - i
-        %{card: card, angle: angle, x_off: x_off, y_off: y_off, scale: scale, z: z}
+        %{card: card, angle: angle, scale: scale, z: z}
       end)
       |> Enum.reverse()
 
@@ -124,7 +122,7 @@ defmodule ParakeetWeb.GameComponents do
           <div
             :for={ct <- @card_transforms}
             class="absolute inset-0"
-            style={"transform: rotate(#{ct.angle}deg) translate(#{ct.x_off}px, #{ct.y_off}px) scale(#{ct.scale}); z-index: #{ct.z}; transform-origin: center;"}
+            style={"transform: rotate(#{ct.angle}deg) scale(#{ct.scale}); z-index: #{ct.z}; transform-origin: center;"}
           >
             <.playing_card card={ct.card} />
           </div>
@@ -170,6 +168,7 @@ defmodule ParakeetWeb.GameComponents do
 
   attr :game, :map, required: true
   attr :player_idx, :any, required: true
+  attr :cooldown?, :boolean, default: false
 
   def game_controls(assigns) do
     my_turn? = assigns.player_idx == assigns.game.current_player_idx
@@ -179,11 +178,14 @@ defmodule ParakeetWeb.GameComponents do
         Enum.at(assigns.game.players, assigns.player_idx).alive
 
     current_player = Enum.at(assigns.game.players, assigns.game.current_player_idx)
+    can_play? = my_turn? and alive? and not assigns.cooldown?
+    can_slap? = alive? and not assigns.cooldown?
 
     assigns =
       assigns
+      |> assign(:can_play?, can_play?)
+      |> assign(:can_slap?, can_slap?)
       |> assign(:my_turn?, my_turn?)
-      |> assign(:alive?, alive?)
       |> assign(:current_player_name, current_player.name)
 
     ~H"""
@@ -191,16 +193,16 @@ defmodule ParakeetWeb.GameComponents do
       <button
         phx-click="play_turn"
         id="play-turn-btn"
-        disabled={not (@my_turn? and @alive?)}
+        disabled={not @can_play?}
         class={[
           "w-full rounded-xl border px-6 py-4 text-lg font-bold transition-colors",
-          if(@my_turn? and @alive?,
+          if(@can_play?,
             do: "bg-emerald-600 border-emerald-600 hover:bg-emerald-500 hover:border-emerald-500 text-white",
             else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
           )
         ]}
       >
-        <%= if @my_turn? and @alive? do %>
+        <%= if @my_turn? do %>
           Play Card
         <% else %>
           Waiting for {@current_player_name}...
@@ -209,10 +211,10 @@ defmodule ParakeetWeb.GameComponents do
       <button
         phx-click="slap"
         id="slap-btn"
-        disabled={not @alive?}
+        disabled={not @can_slap?}
         class={[
           "w-full rounded-xl border px-6 py-4 text-lg font-bold transition-colors",
-          if(@alive?,
+          if(@can_slap?,
             do: "bg-amber-600 border-amber-600 hover:bg-amber-500 hover:border-amber-500 text-white",
             else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
           )

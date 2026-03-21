@@ -164,17 +164,18 @@ defmodule Parakeet.Den.Table do
 
   defp handle_rejoin(state, session_token, player_name, liveview_pid) do
     case Map.get(state.players, session_token) do
-      %{timer: timer} = player when timer != nil ->
-        Process.cancel_timer(timer)
+      nil ->
+        state
+
+      player ->
+        if player.timer, do: Process.cancel_timer(player.timer)
+        if player.ref, do: Process.demonitor(player.ref, [:flush])
         ref = Process.monitor(liveview_pid)
 
         players =
           Map.put(state.players, session_token, %{player | name: player_name, ref: ref, timer: nil})
 
         %{state | players: players}
-
-      _ ->
-        state
     end
   end
 

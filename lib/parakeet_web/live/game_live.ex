@@ -7,6 +7,7 @@ defmodule ParakeetWeb.GameLive do
   import ParakeetWeb.GameComponents
 
   @event_flash_ms 2_500
+  @cooldown_ms 1_000
 
   @impl true
   def mount(%{"code" => code}, session, socket) do
@@ -48,7 +49,8 @@ defmodule ParakeetWeb.GameLive do
                player_idx: player_idx,
                log: ["Game started!"],
                event_flash: nil,
-               event_flash_ref: nil
+               event_flash_ref: nil,
+               cooldown?: false
              )}
         end
 
@@ -94,7 +96,7 @@ defmodule ParakeetWeb.GameLive do
               <.pile game={@game} />
               <.event_flash event_flash={@event_flash} />
             </div>
-            <.game_controls game={@game} player_idx={@player_idx} />
+            <.game_controls game={@game} player_idx={@player_idx} cooldown?={@cooldown?} />
           </div>
         <% end %>
 
@@ -106,6 +108,10 @@ defmodule ParakeetWeb.GameLive do
   end
 
   @impl true
+  def handle_event("play_turn", _params, %{assigns: %{cooldown?: true}} = socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("play_turn", _params, socket) do
     old_game = socket.assigns.game
     old_player = Enum.at(old_game.players, old_game.current_player_idx)
@@ -142,6 +148,10 @@ defmodule ParakeetWeb.GameLive do
   end
 
   @impl true
+  def handle_event("slap", _params, %{assigns: %{cooldown?: true}} = socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("slap", _params, socket) do
     idx = socket.assigns.player_idx
     player = Enum.at(socket.assigns.game.players, idx)
@@ -205,12 +215,17 @@ defmodule ParakeetWeb.GameLive do
     {:noreply, assign(socket, event_flash: nil, event_flash_ref: nil)}
   end
 
+  def handle_info(:clear_cooldown, socket) do
+    {:noreply, assign(socket, cooldown?: false)}
+  end
+
   defp set_event_flash(socket, nil), do: socket
 
   defp set_event_flash(socket, flash) do
     if ref = socket.assigns.event_flash_ref, do: Process.cancel_timer(ref)
     ref = Process.send_after(self(), :clear_event_flash, @event_flash_ms)
-    assign(socket, event_flash: flash, event_flash_ref: ref)
+    Process.send_after(self(), :clear_cooldown, @cooldown_ms)
+    assign(socket, event_flash: flash, event_flash_ref: ref, cooldown?: true)
   end
 
   defp maybe_notify_game_over(socket, game) do
