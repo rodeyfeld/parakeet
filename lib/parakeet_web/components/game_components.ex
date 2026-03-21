@@ -102,12 +102,12 @@ defmodule ParakeetWeb.GameComponents do
       |> Enum.with_index()
       |> Enum.map(fn {card, i} ->
         seed = {pile_size - i, card.face, card.suit, Map.get(card, :value, 0)}
-        angle = rem(:erlang.phash2(seed), 31) - 15
-        x_off = rem(:erlang.phash2({seed, :x}), 21) - 10
-        y_off = rem(:erlang.phash2({seed, :y}), 11) - 5
-        opacity = 1.0 - i * 0.25
+        angle = rem(:erlang.phash2(seed), 360)
+        x_off = rem(:erlang.phash2({seed, :x}), 25) - 12
+        y_off = rem(:erlang.phash2({seed, :y}), 25) - 12
+        scale = 1.0 + i * 0.08
         z = 10 - i
-        %{card: card, angle: angle, x_off: x_off, y_off: y_off, opacity: opacity, z: z}
+        %{card: card, angle: angle, x_off: x_off, y_off: y_off, scale: scale, z: z}
       end)
       |> Enum.reverse()
 
@@ -118,48 +118,48 @@ defmodule ParakeetWeb.GameComponents do
       |> assign(:penalty_count, penalty_count)
 
     ~H"""
-    <div class="w-full flex flex-col items-center gap-3">
-      <div class="relative flex items-center justify-center" style="min-height: 180px; width: 100%;">
-        <%= if @pile_size > 0 do %>
-          <div class="relative" style="width: 80px; height: 112px;">
-            <div
-              :for={ct <- @card_transforms}
-              class="absolute inset-0"
-              style={"transform: rotate(#{ct.angle}deg) translate(#{ct.x_off}px, #{ct.y_off}px); opacity: #{ct.opacity}; z-index: #{ct.z};"}
-            >
-              <.playing_card card={ct.card} />
-            </div>
-          </div>
-        <% else %>
+    <div class="relative w-full flex items-center justify-center" style="min-height: 240px;">
+      <%= if @pile_size > 0 do %>
+        <div class="relative" style="width: 96px; height: 134px;">
           <div
-            class="rounded-xl border-2 border-dashed border-zinc-700 flex items-center justify-center"
-            style="width: 80px; height: 112px;"
+            :for={ct <- @card_transforms}
+            class="absolute inset-0"
+            style={"transform: rotate(#{ct.angle}deg) translate(#{ct.x_off}px, #{ct.y_off}px) scale(#{ct.scale}); z-index: #{ct.z}; transform-origin: center;"}
           >
-            <span class="text-zinc-600 text-sm">Empty</span>
+            <.playing_card card={ct.card} />
           </div>
-        <% end %>
-      </div>
+        </div>
+      <% else %>
+        <div
+          class="rounded-xl border-2 border-dashed border-zinc-700 flex items-center justify-center"
+          style="width: 96px; height: 134px;"
+        >
+          <span class="text-zinc-600 text-sm">Empty</span>
+        </div>
+      <% end %>
 
-      <div class="flex items-center justify-center gap-2 flex-wrap">
-        <span class="text-xs text-zinc-500 font-mono">{@pile_size} in pile</span>
+      <div class="absolute top-1 right-2 flex items-center gap-1.5">
+        <span class="text-[10px] text-zinc-500 font-mono">{@pile_size} in pile</span>
         <%= if @penalty_count > 0 do %>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-rose-900/30 border border-rose-700/40 text-rose-400 font-semibold">
-            +{@penalty_count} penalty
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-900/30 border border-rose-700/40 text-rose-400 font-semibold">
+            +{@penalty_count}
           </span>
         <% end %>
       </div>
 
       <%= if @game.challenger_idx != nil do %>
-        <div class="rounded-lg bg-amber-900/30 border border-amber-700/40 px-4 py-2 text-sm text-center">
-          <span class="font-semibold text-amber-400">Challenge!</span>
-          <span class="text-zinc-300 ml-1">
-            {Enum.at(@game.players, @game.challenger_idx).name}
-          </span>
-          <span class="text-zinc-500 mx-1">&middot;</span>
-          <span class="text-zinc-300">{format_card(@game.challenge_card)}</span>
-          <span class="text-zinc-500 mx-1">&middot;</span>
-          <span class="font-mono font-bold text-white">{@game.chances}</span>
-          <span class="text-zinc-500 ml-0.5">left</span>
+        <div class="absolute bottom-1 inset-x-0 flex justify-center z-10">
+          <div class="rounded-lg bg-amber-900/80 backdrop-blur-sm border border-amber-700/40 px-3 py-1.5 text-xs text-center">
+            <span class="font-semibold text-amber-400">Challenge!</span>
+            <span class="text-zinc-300 ml-1">
+              {Enum.at(@game.players, @game.challenger_idx).name}
+            </span>
+            <span class="text-zinc-500 mx-0.5">&middot;</span>
+            <span class="text-zinc-300">{format_card(@game.challenge_card)}</span>
+            <span class="text-zinc-500 mx-0.5">&middot;</span>
+            <span class="font-mono font-bold text-white">{@game.chances}</span>
+            <span class="text-zinc-500 ml-0.5">left</span>
+          </div>
         </div>
       <% end %>
     </div>
@@ -187,16 +187,16 @@ defmodule ParakeetWeb.GameComponents do
       |> assign(:current_player_name, current_player.name)
 
     ~H"""
-    <div class="flex gap-2 w-full max-w-sm">
+    <div class="flex flex-col gap-2 w-full max-w-sm">
       <button
         phx-click="play_turn"
         id="play-turn-btn"
         disabled={not (@my_turn? and @alive?)}
         class={[
-          "flex-[2] rounded-lg px-4 py-3 font-semibold transition-all text-sm",
+          "w-full rounded-xl border px-6 py-4 text-lg font-bold transition-colors",
           if(@my_turn? and @alive?,
-            do: "bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95",
-            else: "bg-zinc-800 border border-zinc-700 text-zinc-500 cursor-not-allowed"
+            do: "bg-emerald-600 border-emerald-600 hover:bg-emerald-500 hover:border-emerald-500 text-white",
+            else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
           )
         ]}
       >
@@ -211,10 +211,10 @@ defmodule ParakeetWeb.GameComponents do
         id="slap-btn"
         disabled={not @alive?}
         class={[
-          "flex-1 rounded-lg px-4 py-3 font-semibold transition-all text-sm",
+          "w-full rounded-xl border px-6 py-4 text-lg font-bold transition-colors",
           if(@alive?,
-            do: "bg-amber-600 hover:bg-amber-500 text-white active:scale-95",
-            else: "bg-zinc-800 border border-zinc-700 text-zinc-500 cursor-not-allowed"
+            do: "bg-amber-600 border-amber-600 hover:bg-amber-500 hover:border-amber-500 text-white",
+            else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
           )
         ]}
       >
@@ -255,22 +255,24 @@ defmodule ParakeetWeb.GameComponents do
     <%= if @event_flash do %>
       <div
         id="event-flash"
-        class="relative overflow-hidden rounded-xl border w-full max-w-sm px-4 py-3"
+        class="absolute inset-x-0 bottom-0 z-20 flex justify-center pointer-events-none"
         style="animation: fade-in-scale 0.3s ease-out"
       >
-        <div class={["absolute inset-0 opacity-20", event_flash_bg(@event_flash.type)]}></div>
-        <div class="relative flex items-center gap-3">
-          <div class={[
-            "flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold shrink-0",
-            event_flash_icon_class(@event_flash.type)
-          ]}>
-            {event_flash_icon(@event_flash.type)}
-          </div>
-          <div>
-            <div class={["font-bold tracking-tight", event_flash_text_class(@event_flash.type)]}>
-              {@event_flash.label}
+        <div class="relative overflow-hidden rounded-xl border max-w-sm px-4 py-3 backdrop-blur-sm bg-zinc-900/80 pointer-events-auto">
+          <div class={["absolute inset-0 opacity-20", event_flash_bg(@event_flash.type)]}></div>
+          <div class="relative flex items-center gap-3">
+            <div class={[
+              "flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold shrink-0",
+              event_flash_icon_class(@event_flash.type)
+            ]}>
+              {event_flash_icon(@event_flash.type)}
             </div>
-            <div class="text-xs text-zinc-400">{@event_flash.detail}</div>
+            <div>
+              <div class={["font-bold tracking-tight", event_flash_text_class(@event_flash.type)]}>
+                {@event_flash.label}
+              </div>
+              <div class="text-xs text-zinc-400">{@event_flash.detail}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -284,7 +286,7 @@ defmodule ParakeetWeb.GameComponents do
 
   def game_log(assigns) do
     ~H"""
-    <details class="group rounded-xl border border-zinc-700 bg-zinc-900/60">
+    <details id="game-log-drawer" phx-hook=".KeepOpen" class="group rounded-xl border border-zinc-700 bg-zinc-900/60">
       <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between text-sm font-semibold text-zinc-300 hover:text-white transition-colors">
         <span class="flex items-center gap-2">
           <.icon
@@ -314,6 +316,12 @@ defmodule ParakeetWeb.GameComponents do
         </div>
       </div>
     </details>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".KeepOpen">
+    export default {
+      beforeUpdate() { this._open = this.el.open },
+      updated() { this.el.open = this._open }
+    }
+    </script>
     """
   end
 
@@ -382,15 +390,28 @@ defmodule ParakeetWeb.GameComponents do
 
   def playing_card(assigns) do
     ~H"""
-    <div class={[
-      "w-20 h-28 rounded-xl border border-zinc-600 bg-zinc-800 flex flex-col items-center justify-center font-mono shadow-md",
-      suit_color(@card.suit)
-    ]}>
-      <span class="font-bold text-lg">{format_face(@card)}</span>
-      <span class="text-base">{suit_symbol(@card.suit)}</span>
+    <div class="w-24 h-[134px] rounded-lg bg-white shadow-lg relative overflow-hidden select-none">
+      <div class="absolute inset-[2px] rounded-md border border-zinc-200">
+        <div class={["absolute top-1.5 left-2 flex flex-col items-center leading-none", suit_color_card(@card.suit)]}>
+          <span class="text-sm font-bold">{format_face(@card)}</span>
+          <span class="text-[10px]">{suit_symbol(@card.suit)}</span>
+        </div>
+        <div class={["absolute bottom-1.5 right-2 flex flex-col items-center leading-none rotate-180", suit_color_card(@card.suit)]}>
+          <span class="text-sm font-bold">{format_face(@card)}</span>
+          <span class="text-[10px]">{suit_symbol(@card.suit)}</span>
+        </div>
+        <div class={["absolute inset-0 flex items-center justify-center", suit_color_card(@card.suit)]}>
+          <span class="text-4xl">{suit_symbol(@card.suit)}</span>
+        </div>
+      </div>
     </div>
     """
   end
+
+  defp suit_color_card(:hearts), do: "text-red-600"
+  defp suit_color_card(:diamonds), do: "text-red-600"
+  defp suit_color_card(:clubs), do: "text-zinc-800"
+  defp suit_color_card(:spades), do: "text-zinc-800"
 
   # -- Private Helpers --
 

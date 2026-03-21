@@ -90,8 +90,10 @@ defmodule ParakeetWeb.GameLive do
           <.game_over_banner winner={@game.winner} />
         <% else %>
           <div class="flex flex-col items-center gap-4">
-            <.pile game={@game} />
-            <.event_flash event_flash={@event_flash} />
+            <div class="relative w-full">
+              <.pile game={@game} />
+              <.event_flash event_flash={@event_flash} />
+            </div>
             <.game_controls game={@game} player_idx={@player_idx} />
           </div>
         <% end %>
