@@ -6,8 +6,8 @@ defmodule Parakeet.Game.Bot do
 
   @min_play_delay_ms 500
   @max_play_delay_ms 1500
-  @min_slap_delay_ms 400
-  @max_slap_delay_ms 1_200
+  @min_slap_delay_ms 750
+  @max_slap_delay_ms 1500
   @slap_chance 0.6
 
   defstruct [

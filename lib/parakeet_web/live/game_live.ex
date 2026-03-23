@@ -7,7 +7,7 @@ defmodule ParakeetWeb.GameLive do
   import ParakeetWeb.GameComponents
 
   @event_flash_ms 2_500
-  @cooldown_ms 1_000
+  @cooldown_ms 2_000
 
   @impl true
   def mount(%{"code" => code}, session, socket) do
@@ -54,11 +54,12 @@ defmodule ParakeetWeb.GameLive do
                    game: game,
                    player_name: player_name,
                    player_idx: player_idx,
-               log: ["Game started!"],
-               event_flash: nil,
-               event_flash_ref: nil,
-               cooldown?: false,
-               card_history: []
+                   log: ["Game started!"],
+                   event_flash: nil,
+                   event_flash_ref: nil,
+                   cooldown?: false,
+                   card_history: [],
+                   card_deltas: %{}
                  )}
             end
         end
@@ -93,7 +94,9 @@ defmodule ParakeetWeb.GameLive do
             player={player}
             idx={idx}
             current_player_idx={@game.current_player_idx}
+            challenger_idx={@game.challenger_idx}
             player_idx={@player_idx}
+            card_delta={Map.get(@card_deltas, idx)}
           />
         </div>
 
@@ -105,7 +108,7 @@ defmodule ParakeetWeb.GameLive do
               <.pile game={@game} />
               <.event_flash event_flash={@event_flash} />
             </div>
-            <.card_history cards={@card_history} />
+            <.card_history cards={@card_history} game={@game} />
             <.game_controls game={@game} player_idx={@player_idx} cooldown?={@cooldown?} />
           </div>
         <% end %>
@@ -136,8 +139,9 @@ defmodule ParakeetWeb.GameLive do
 
     socket =
       socket
-      |> assign(game: game, log: socket.assigns.log ++ [msg])
       |> push_card_history(played_card)
+      |> assign_game(game)
+      |> assign(log: socket.assigns.log ++ [msg])
 
     {:noreply, socket}
   end
@@ -180,7 +184,8 @@ defmodule ParakeetWeb.GameLive do
     socket =
       socket
       |> detect_new_card(game)
-      |> assign(game: game, log: socket.assigns.log ++ msgs)
+      |> assign_game(game)
+      |> assign(log: socket.assigns.log ++ msgs)
       |> set_event_flash(event_flash)
 
     {:noreply, socket}
@@ -199,7 +204,8 @@ defmodule ParakeetWeb.GameLive do
     socket =
       socket
       |> detect_new_card(game)
-      |> assign(game: game, log: socket.assigns.log ++ [msg])
+      |> assign_game(game)
+      |> assign(log: socket.assigns.log ++ [msg])
       |> set_event_flash(event_flash)
 
     {:noreply, socket}
@@ -211,14 +217,15 @@ defmodule ParakeetWeb.GameLive do
     socket =
       socket
       |> detect_new_card(game)
-      |> assign(game: game, log: socket.assigns.log ++ [msg])
+      |> assign_game(game)
+      |> assign(log: socket.assigns.log ++ [msg])
 
     {:noreply, socket}
   end
 
   def handle_info({:game_finished, game}, socket) do
     Table.update_game_status(socket.assigns.table_pid, :finished)
-    {:noreply, assign(socket, game: game)}
+    {:noreply, assign_game(socket, game)}
   end
 
   @impl true
@@ -237,7 +244,8 @@ defmodule ParakeetWeb.GameLive do
     socket =
       socket
       |> detect_new_card(game)
-      |> assign(game: game, log: socket.assigns.log ++ [msg])
+      |> assign_game(game)
+      |> assign(log: socket.assigns.log ++ [msg])
       |> set_event_flash(flash)
 
     {:noreply, socket}
@@ -296,6 +304,28 @@ defmodule ParakeetWeb.GameLive do
       true ->
         socket
     end
+  end
+
+  defp assign_game(socket, new_game) do
+    old_game = socket.assigns.game
+    deltas = compute_card_deltas(old_game, new_game)
+    assign(socket, game: new_game, card_deltas: deltas)
+  end
+
+  defp compute_card_deltas(old_game, new_game) do
+    old_game.players
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {old_player, idx}, acc ->
+      new_player = Enum.at(new_game.players, idx)
+      old_count = CardStack.count(old_player.hand)
+      new_count = CardStack.count(new_player.hand)
+
+      cond do
+        new_count > old_count -> Map.put(acc, idx, :up)
+        new_count < old_count -> Map.put(acc, idx, :down)
+        true -> acc
+      end
+    end)
   end
 
   defp safe_get_state(pid) do

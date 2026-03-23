@@ -148,7 +148,21 @@ defmodule Parakeet.Den.Table do
     end
   end
 
+  @impl true
+  def terminate(_reason, state) do
+    stop_engine(state.engine_pid)
+    :ok
+  end
+
   # --- Private ---
+
+  defp stop_engine(nil), do: :ok
+
+  defp stop_engine(pid) do
+    if Process.alive?(pid), do: GenServer.stop(pid, :normal)
+  catch
+    :exit, _ -> :ok
+  end
 
   defp create_table(session_token, player_name, table_name, code, liveview_pid) do
     ref = Process.monitor(liveview_pid)
@@ -278,7 +292,12 @@ defmodule Parakeet.Den.Table do
 
         state = %{state | players: remaining}
 
-        if remaining == %{}, do: {:stop, state}, else: {:ok, state}
+        if remaining == %{} do
+          stop_engine(state.engine_pid)
+          {:stop, state}
+        else
+          {:ok, state}
+        end
     end
   end
 

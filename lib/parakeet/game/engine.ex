@@ -4,7 +4,7 @@ defmodule Parakeet.Game.Engine do
   use GenServer
 
   @shutdown_delay_ms 120_000
-  @slap_window_ms 250
+  @slap_window_ms 1_500
   @type status :: :running | :finished
 
   defstruct [
