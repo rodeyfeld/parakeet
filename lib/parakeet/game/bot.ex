@@ -9,6 +9,7 @@ defmodule Parakeet.Game.Bot do
   @min_slap_delay_ms 750
   @max_slap_delay_ms 1500
   @slap_chance 0.6
+  @pile_win_cooldown_ms 2000
 
   defstruct [
     :engine_pid,
@@ -17,7 +18,8 @@ defmodule Parakeet.Game.Bot do
     :name,
     :game,
     :play_timer,
-    :slap_timer
+    :slap_timer,
+    cooldown_until: nil
   ]
 
   def start_link(opts) do
@@ -48,7 +50,8 @@ defmodule Parakeet.Game.Bot do
   end
 
   @impl true
-  def handle_info({:game_update, game, _msg, _event_flash}, state) do
+  def handle_info({:game_update, game, _msg, event_flash}, state) do
+    state = if event_flash, do: set_cooldown(state), else: state
     handle_react(react_to(state, game))
   end
 
@@ -57,7 +60,7 @@ defmodule Parakeet.Game.Bot do
   end
 
   def handle_info({:challenge_resolved, game}, state) do
-    handle_react(react_to(state, game))
+    handle_react(react_to(set_cooldown(state), game))
   end
 
   def handle_info(:play_card, state) do
@@ -116,8 +119,10 @@ defmodule Parakeet.Game.Bot do
       for msg <- msgs, do: broadcast_update(state, game, msg, event_flash)
       maybe_notify_game_over(state, game)
 
-      %{state | game: game}
-      |> react_to_own_action()
+      state = %{state | game: game}
+      state = if new_count > old_count, do: set_cooldown(state), else: state
+
+      react_to_own_action(state)
     else
       {:noreply, state}
     end
@@ -167,6 +172,10 @@ defmodule Parakeet.Game.Bot do
     %{state | play_timer: nil, slap_timer: nil}
   end
 
+  defp set_cooldown(state) do
+    %{state | cooldown_until: System.monotonic_time(:millisecond) + @pile_win_cooldown_ms}
+  end
+
   defp maybe_schedule_play(state) do
     player = Enum.at(state.game.players, state.player_idx)
     pending_challenge? = state.game.challenger_idx != nil and state.game.chances == 0
@@ -179,7 +188,12 @@ defmodule Parakeet.Game.Bot do
         not pending_challenge?
 
     if can_play? and state.play_timer == nil do
-      delay = Enum.random(@min_play_delay_ms..@max_play_delay_ms)
+      now = System.monotonic_time(:millisecond)
+
+      cooldown_remaining =
+        if state.cooldown_until, do: max(state.cooldown_until - now, 0), else: 0
+
+      delay = cooldown_remaining + Enum.random(@min_play_delay_ms..@max_play_delay_ms)
       timer = Process.send_after(self(), :play_card, delay)
       %{state | play_timer: timer}
     else
@@ -189,11 +203,15 @@ defmodule Parakeet.Game.Bot do
 
   defp maybe_schedule_slap(state) do
     player = Enum.at(state.game.players, state.player_idx)
+    now = System.monotonic_time(:millisecond)
+
+    in_cooldown? = state.cooldown_until != nil and now < state.cooldown_until
 
     can_slap? =
       state.game.status == :running and
         player.alive and
-        CardStack.count(state.game.pile) >= 2
+        CardStack.count(state.game.pile) >= 2 and
+        not in_cooldown?
 
     if can_slap? and state.slap_timer == nil do
       slap_type = Slap.slap_type(state.game.pile)

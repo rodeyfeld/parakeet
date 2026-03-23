@@ -121,7 +121,7 @@ defmodule ParakeetWeb.GameComponents do
           {@player.name}
         </div>
         <div class={[
-          "text-xs font-mono inline-flex items-center gap-0.5",
+          "text-lg font-bold font-mono inline-flex items-center gap-0.5",
           if(@is_me?, do: "text-sky-400", else: "text-zinc-500")
         ]}>
           <span
@@ -131,12 +131,6 @@ defmodule ParakeetWeb.GameComponents do
           >
             {@card_count}
           </span>
-          <%= if @is_me? do %>
-            <span>&middot;you</span>
-          <% end %>
-          <%= if @player.bot do %>
-            <span class="text-violet-400">&middot;cpu</span>
-          <% end %>
         </div>
       </div>
     </div>
@@ -158,7 +152,7 @@ defmodule ParakeetWeb.GameComponents do
         <span
           :for={card <- @visible}
           class={[
-            "text-lg font-bold font-mono opacity-80",
+            "text-xl font-bold font-mono opacity-80",
             if(card.suit in [:hearts, :diamonds], do: "text-red-400", else: "text-zinc-400")
           ]}
         >
@@ -167,12 +161,12 @@ defmodule ParakeetWeb.GameComponents do
       </div>
       <div class="pl-3 flex items-center gap-2">
         <%= if @game.challenger_idx != nil do %>
-          <span class="w-px h-5 bg-zinc-700"></span>
-          <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-900/40 border border-amber-700/30 px-2.5 py-0.5 text-sm font-mono">
+          <span class="w-px h-6 bg-zinc-700"></span>
+          <span class="inline-flex items-center gap-2 rounded-full bg-amber-900/40 border border-amber-700/30 px-3 py-1 text-base font-mono">
             <span class="font-bold text-amber-300">{format_card(@game.challenge_card)}</span>
             <span class="text-zinc-500">&middot;</span>
-            <span class="font-bold text-white text-base">{@game.chances}</span>
-            <span class="text-zinc-400 text-xs">left</span>
+            <span class="font-bold text-white text-lg">{@game.chances}</span>
+            <span class="text-zinc-400 text-sm">left</span>
           </span>
         <% end %>
       </div>

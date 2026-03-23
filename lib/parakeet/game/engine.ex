@@ -295,13 +295,44 @@ defmodule Parakeet.Game.Engine do
       "handle_challenge_initiate: player #{state.current_player_idx} played #{challenge_card.face} (#{Card.challenge_chances(challenge_card)} chances)"
     )
 
-    %{
+    old_challenger_idx = state.challenger_idx
+    new_challenger_idx = state.current_player_idx
+
+    state = %{
       state
-      | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx),
+      | current_player_idx: get_next_alive_player_idx(state, new_challenger_idx),
         chances: Card.challenge_chances(challenge_card),
         challenge_card: challenge_card,
-        challenger_idx: state.current_player_idx
+        challenger_idx: new_challenger_idx
     }
+
+    if old_challenger_idx != nil and old_challenger_idx != new_challenger_idx do
+      old_challenger = Enum.at(state.players, old_challenger_idx)
+
+      if CardStack.count(old_challenger.hand) == 0 do
+        Logger.debug(
+          "handle_challenge_initiate: old challenger #{old_challenger.name} (#{old_challenger_idx}) has 0 cards, eliminating"
+        )
+
+        players =
+          List.update_at(state.players, old_challenger_idx, fn %Player{} = p ->
+            %Player{p | alive: false}
+          end)
+
+        state = %{state | players: players}
+        state = check_game_over(state)
+
+        if state.current_player_idx == old_challenger_idx do
+          %{state | current_player_idx: get_next_alive_player_idx(state, old_challenger_idx)}
+        else
+          state
+        end
+      else
+        state
+      end
+    else
+      state
+    end
   end
 
   defp handle_challenge_chance(state) do

@@ -7,7 +7,7 @@ defmodule ParakeetWeb.GameLive do
   import ParakeetWeb.GameComponents
 
   @event_flash_ms 2_500
-  @cooldown_ms 2_000
+  @cooldown_ms 3_000
 
   @impl true
   def mount(%{"code" => code}, session, socket) do
@@ -128,22 +128,14 @@ defmodule ParakeetWeb.GameLive do
   def handle_event("play_turn", _params, socket) do
     old_game = socket.assigns.game
     old_player = Enum.at(old_game.players, old_game.current_player_idx)
-    {played_card, _} = CardStack.pop_top(old_player.hand)
 
-    game = Engine.play_turn(socket.assigns.engine_pid)
+    case CardStack.pop_top(old_player.hand) do
+      :empty ->
+        {:noreply, socket}
 
-    msg = "#{old_player.name} plays #{format_card(played_card)}"
-
-    broadcast_game_update(socket.assigns.code, game, msg, nil)
-    maybe_notify_game_over(socket, game)
-
-    socket =
-      socket
-      |> push_card_history(played_card)
-      |> assign_game(game)
-      |> assign(log: socket.assigns.log ++ [msg])
-
-    {:noreply, socket}
+      {played_card, _} ->
+        handle_play(socket, old_player, played_card)
+    end
   end
 
   @impl true
@@ -195,6 +187,23 @@ defmodule ParakeetWeb.GameLive do
   def handle_event("leave_game", _params, socket) do
     Table.leave(socket.assigns.table_pid, socket.assigns.session_token)
     {:noreply, push_navigate(socket, to: ~p"/den")}
+  end
+
+  defp handle_play(socket, old_player, played_card) do
+    game = Engine.play_turn(socket.assigns.engine_pid)
+
+    msg = "#{old_player.name} plays #{format_card(played_card)}"
+
+    broadcast_game_update(socket.assigns.code, game, msg, nil)
+    maybe_notify_game_over(socket, game)
+
+    socket =
+      socket
+      |> push_card_history(played_card)
+      |> assign_game(game)
+      |> assign(log: socket.assigns.log ++ [msg])
+
+    {:noreply, socket}
   end
 
   @impl true

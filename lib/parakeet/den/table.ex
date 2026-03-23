@@ -202,12 +202,18 @@ defmodule Parakeet.Den.Table do
     state.bots
     |> Enum.with_index(human_count)
     |> Enum.each(fn {name, idx} ->
-      Parakeet.Game.BotSupervisor.start_bot(%{
-        engine_pid: engine_pid,
-        player_idx: idx,
-        topic: "game:#{state.code}",
-        name: name
-      })
+      case Parakeet.Game.BotSupervisor.start_bot(%{
+             engine_pid: engine_pid,
+             player_idx: idx,
+             topic: "game:#{state.code}",
+             name: name
+           }) do
+        {:ok, pid} ->
+          Logger.debug("Started bot #{name} (idx #{idx}) at #{inspect(pid)}")
+
+        {:error, reason} ->
+          Logger.error("Failed to start bot #{name}: #{inspect(reason)}")
+      end
     end)
 
     %{state | engine_pid: engine_pid, game_status: :running, players: players}
