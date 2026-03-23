@@ -7,6 +7,10 @@ defmodule ParakeetWeb.GameComponents do
   @parrot_eye_d "M187.733,68.267c0,9.412,7.654,17.067,17.067,17.067s17.067-7.654,17.067-17.067c0-9.412-7.654-17.067-17.067-17.067S187.733,58.854,187.733,68.267z"
   @parrot_wing_d "M355.9,215.834C319.232,179.157,242.338,153.6,196.267,153.6c-62.285,0-93.867,22.963-93.867,68.267c0,64.58,119.151,136.533,290.133,136.533c4.719,0,8.533-3.823,8.533-8.533s-3.814-8.533-8.533-8.533c-153.788,0-273.067-64.222-273.067-119.467c0-23.834,8.73-51.2,76.8-51.2c15.59,0,33.698,3.012,52.036,8.064c-13.244,14.865-32.239,45.679-25.071,95.548c0.614,4.258,4.267,7.322,8.439,7.322c0.401,0,0.811-0.026,1.229-0.085c4.668-0.674,7.902-5.001,7.236-9.668c-7.552-52.48,17.749-79.701,26.53-87.424c12.655,4.403,25.02,9.694,36.412,15.531c-13.773,13.986-36.582,44.817-29.926,91.392c0.606,4.25,4.258,7.322,8.44,7.322c0.401,0,0.811-0.026,1.22-0.085c4.668-0.666,7.902-4.992,7.236-9.66c-6.255-43.759,18.347-71.04,28.518-80.265c9.916,6.118,18.628,12.604,25.267,19.243c1.63,1.63,4.045,4.181,6.818,7.262c-15.053,11.639-32.512,36.002-26.266,73.446c0.691,4.164,4.309,7.125,8.405,7.125c0.469,0,0.93-0.034,1.408-0.119c4.651-0.768,7.791-5.171,7.014-9.822c-5.513-33.101,11.255-50.586,20.446-57.489c28.911,36.591,78.319,116.685,81.877,240.939c-53.675-29.611-68.676-57.301-68.992-57.907c-2.116-4.181-7.228-5.871-11.426-3.772c-4.216,2.116-5.931,7.236-3.823,11.452c0.751,1.502,19.149,37.077,89.156,72.09c1.203,0.597,2.509,0.896,3.814,0.896c1.562,0,3.115-0.427,4.48-1.271c2.517-1.553,4.053-4.301,4.053-7.262C460.8,333.909,380.51,240.444,355.9,215.834z"
 
+  @playcard_d "M463.164,146.031l-77.369,288.746c-1.677,6.26-7.362,10.4-13.556,10.401c-1.198,0-2.414-0.155-3.625-0.479 l-189.261-50.712c-7.472-2.003-11.922-9.711-9.919-17.183l2.041-7.616c1.287-4.801,6.222-7.647,11.023-6.363 c4.801,1.287,7.65,6.222,6.363,11.023l-1.013,3.78l181.587,48.656l75.314-281.076l-77.031-20.64 c-4.801-1.287-7.651-6.222-6.364-11.023s6.225-7.648,11.022-6.364l80.869,21.668C460.718,130.853,465.167,138.56,463.164,146.031z M166.128,56.029c-4.971,0-9,4.029-9,9v8.565c0,4.971,4.029,9,9,9s9-4.029,9-9v-8.565C175.128,60.058,171.099,56.029,166.128,56.029 z M280.889,176.762c2.202,3.114,2.202,7.278,0,10.393l-41.716,58.996c-1.687,2.385-4.427,3.804-7.349,3.804 c-2.921,0-5.662-1.418-7.348-3.804l-41.718-58.996c-2.202-3.114-2.202-7.278,0-10.393l41.718-58.996 c1.687-2.385,4.427-3.804,7.348-3.804c2.922,0,5.662,1.418,7.349,3.804L280.889,176.762z M262.518,181.958l-30.694-43.408 l-30.694,43.408l30.694,43.407L262.518,181.958z M343.016,380.764l-2.216,8.273c-1.286,4.801,1.563,9.736,6.365,11.022 c0.78,0.209,1.563,0.309,2.334,0.309c3.974,0,7.611-2.653,8.688-6.674l2.216-8.273c1.286-4.801-1.563-9.736-6.365-11.022 C349.237,373.111,344.302,375.963,343.016,380.764z M112.375,215.913c2.577-0.69,5.056-1.089,7.454-1.195V32.492 c0-7.736,6.293-14.029,14.028-14.029h195.935c7.736,0,14.03,6.293,14.03,14.029v182.225c2.396,0.106,4.875,0.505,7.45,1.195 c16.511,4.424,26.346,21.457,21.922,37.968c-4.28,15.974-17.951,28.108-29.372,36.404v41.139c0,7.736-6.294,14.03-14.03,14.03 H133.857c-7.735,0-14.028-6.294-14.028-14.03v-41.137c-11.422-8.295-25.093-20.428-29.376-36.405 c-2.143-7.996-1.042-16.35,3.1-23.523C97.695,223.186,104.38,218.055,112.375,215.913z M343.821,267.05 c6.531-6.172,10.424-12,11.985-17.828c1.855-6.924-2.27-14.067-9.194-15.923c-1.047-0.281-1.97-0.451-2.791-0.538V267.05z M137.829,327.454h187.992v-41.7c-0.001-0.08-0.001-0.161,0-0.241v-59.907c-0.003-0.13-0.003-0.261,0-0.391V36.463H137.829v188.755 c0.003,0.13,0.003,0.261,0,0.392v59.898c0.001,0.084,0.001,0.168,0,0.252V327.454z M107.84,249.222 c1.563,5.83,5.457,11.66,11.989,17.832v-34.292c-0.822,0.086-1.746,0.256-2.794,0.537c-3.353,0.898-6.156,3.051-7.894,6.061 C107.404,242.369,106.942,245.871,107.84,249.222z M173.576,405.019l-79.363,21.265L18.897,145.209l77.031-20.641 c4.801-1.287,7.651-6.222,6.364-11.023c-1.287-4.801-6.225-7.65-11.022-6.364L10.402,128.85c-3.614,0.968-6.637,3.29-8.512,6.538 c-1.876,3.249-2.376,7.029-1.407,10.644l77.37,288.743c0.968,3.616,3.29,6.641,6.54,8.518c2.166,1.25,4.567,1.89,7,1.89 c1.216,0,2.439-0.16,3.644-0.482l83.199-22.293c4.801-1.287,7.651-6.222,6.364-11.022 C183.312,406.581,178.377,403.734,173.576,405.019z M51.298,156.782c-4.801,1.287-7.65,6.222-6.364,11.023l2.217,8.274 c1.078,4.021,4.714,6.673,8.688,6.673c0.771,0,1.555-0.1,2.335-0.309c4.801-1.287,7.65-6.222,6.364-11.023l-2.217-8.274 C61.034,158.344,56.101,155.496,51.298,156.782z M297.52,281.322c-4.971,0-9,4.029-9,9v8.565c0,4.971,4.029,9,9,9s9-4.029,9-9 v-8.565C306.52,285.352,302.491,281.322,297.52,281.322z"
+
+  @slap_d "M316.26 30.982c66.658 35.958 111.957 106.423 111.957 187.47 0 117.567-95.305 212.872-212.87 212.872-81.016 0-151.456-45.26-187.427-111.87C54.146 421.63 146.772 497.02 257.195 497.02c130.85 0 236.703-105.857 236.703-236.706 0-110.448-75.424-203.12-177.638-229.332zM173.027 49.174c-.513-.002-1.022.008-1.525.03-4.83.2-8.995 1.528-12.078 3.548L146.79 160.74l-15.458 28.592c6.213 10.643 11.196 21.47 14.826 32.496l-17.75 5.844c-2.052-6.233-4.63-12.46-7.703-18.682l-.025.047c-12.95-22.565-27.376-41.2-38.912-47.967-6.19-3.63-10.49-4.2-15.262-2.35-3.982 1.546-9.023 5.83-14.383 13.985 33.155 41.62 40.914 80.725 46.535 106.195 1.802 8.16 1.855 15.758 3.23 21.36l.305 1.234-.04 1.272c-.754 25.344 10.396 43.41 26.146 55.218 15.704 11.776 36.216 16.526 52.104 13.748 19.725-4.198 32.415-11.058 45.717-22.464 11.922-10.57 33.085-26.408 45.062-36.42 37.06-30.977 98.058-63.045 108.02-68.21 2.108-10.902-4.806-22.478-13.655-27.152l-74.184 42.71c-3.954-7.074-8.448-13.68-13.392-19.895l91.505-99.21c-.33-6.228-3.38-13.547-8.305-19.252-4.444-5.147-9.932-8.334-14.133-9.373l-95.07 101.33c-6.066-5.157-12.43-10.054-19.002-14.772l66.1-125.216c-4.527-6.72-9.388-10.572-15.26-13.237-5.445-2.47-12.303-3.794-19.887-4.892l-60.463 123.8c-7.348-4.592-14.772-9.118-22.182-13.656l14.055-108.806c-3.996-3.416-10.597-6.564-17.572-7.512-1.603-.218-3.188-.326-4.73-.33z"
+
   def format_card(nil), do: "none"
   def format_card(card), do: "#{format_face(card)}#{suit_symbol(card.suit)}"
 
@@ -58,7 +62,12 @@ defmodule ParakeetWeb.GameComponents do
           ),
           if(!@player.alive, do: "opacity-30 grayscale")
         ]}
-        style={if(@active? and @player.alive, do: "--glow-color: #{@fill}; border-color: #{@fill};", else: "")}
+        style={
+          if(@active? and @player.alive,
+            do: "--glow-color: #{@fill}; border-color: #{@fill};",
+            else: ""
+          )
+        }
       >
         <svg viewBox="0 0 512 512" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg">
           <path fill={@fill} d={@body_d} />
@@ -82,8 +91,37 @@ defmodule ParakeetWeb.GameComponents do
           <%= if @is_me? do %>
             <span>&middot;you</span>
           <% end %>
+          <%= if @player.bot do %>
+            <span class="text-violet-400">&middot;cpu</span>
+          <% end %>
         </div>
       </div>
+    </div>
+    """
+  end
+
+  # -- Card History --
+
+  attr :cards, :list, required: true
+
+  def card_history(assigns) do
+    visible = assigns.cards |> Enum.take(4) |> Enum.reverse()
+    assigns = assign(assigns, :visible, visible)
+
+    ~H"""
+    <div class="grid grid-cols-2 mt-1">
+      <div class="flex justify-end gap-2">
+        <span
+          :for={card <- @visible}
+          class={[
+            "text-sm font-semibold font-mono opacity-70",
+            if(card.suit in [:hearts, :diamonds], do: "text-red-400", else: "text-zinc-400")
+          ]}
+        >
+          {format_face(card)}{suit_symbol(card.suit)}
+        </span>
+      </div>
+      <div></div>
     </div>
     """
   end
@@ -177,8 +215,9 @@ defmodule ParakeetWeb.GameComponents do
       assigns.player_idx != nil and
         Enum.at(assigns.game.players, assigns.player_idx).alive
 
+    pending_challenge? = assigns.game.challenger_idx != nil and assigns.game.chances == 0
     current_player = Enum.at(assigns.game.players, assigns.game.current_player_idx)
-    can_play? = my_turn? and alive? and not assigns.cooldown?
+    can_play? = my_turn? and alive? and not assigns.cooldown? and not pending_challenge?
     can_slap? = alive? and not assigns.cooldown?
 
     assigns =
@@ -187,41 +226,63 @@ defmodule ParakeetWeb.GameComponents do
       |> assign(:can_slap?, can_slap?)
       |> assign(:my_turn?, my_turn?)
       |> assign(:current_player_name, current_player.name)
+      |> assign(:playcard_d, @playcard_d)
+      |> assign(:slap_d, @slap_d)
 
     ~H"""
-    <div class="flex flex-col gap-2 w-full max-w-sm">
-      <button
-        phx-click="play_turn"
-        id="play-turn-btn"
-        disabled={not @can_play?}
-        class={[
-          "w-full rounded-xl border px-6 py-4 text-lg font-bold transition-colors",
-          if(@can_play?,
-            do: "bg-emerald-600 border-emerald-600 hover:bg-emerald-500 hover:border-emerald-500 text-white",
-            else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
-          )
-        ]}
-      >
-        <%= if @my_turn? do %>
-          Play Card
-        <% else %>
-          Waiting for {@current_player_name}...
-        <% end %>
-      </button>
-      <button
-        phx-click="slap"
-        id="slap-btn"
-        disabled={not @can_slap?}
-        class={[
-          "w-full rounded-xl border px-6 py-4 text-lg font-bold transition-colors",
-          if(@can_slap?,
-            do: "bg-amber-600 border-amber-600 hover:bg-amber-500 hover:border-amber-500 text-white",
-            else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
-          )
-        ]}
-      >
-        Slap!
-      </button>
+    <div class="flex items-start justify-center gap-8">
+      <div class="flex flex-col items-center gap-1.5">
+        <button
+          phx-click="play_turn"
+          id="play-turn-btn"
+          disabled={not @can_play?}
+          class={[
+            "w-20 h-20 rounded-full border-2 flex items-center justify-center transition-colors",
+            if(@can_play?,
+              do: "bg-emerald-600 border-emerald-500 hover:bg-emerald-500 text-white",
+              else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
+            )
+          ]}
+        >
+          <svg viewBox="0 0 463.644 463.644" class="w-9 h-9 fill-current">
+            <path d={@playcard_d} />
+          </svg>
+        </button>
+        <span class={[
+          "text-xs font-semibold",
+          if(@can_play?, do: "text-emerald-400", else: "text-zinc-500")
+        ]}>
+          <%= if @my_turn? do %>
+            Play
+          <% else %>
+            {@current_player_name}...
+          <% end %>
+        </span>
+      </div>
+      <div class="flex flex-col items-center gap-1.5">
+        <button
+          phx-click="slap"
+          id="slap-btn"
+          disabled={not @can_slap?}
+          class={[
+            "w-20 h-20 rounded-full border-2 flex items-center justify-center transition-colors",
+            if(@can_slap?,
+              do: "bg-amber-600 border-amber-500 hover:bg-amber-500 text-white",
+              else: "bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed"
+            )
+          ]}
+        >
+          <svg viewBox="0 0 512 512" class="w-9 h-9 fill-current">
+            <path d={@slap_d} />
+          </svg>
+        </button>
+        <span class={[
+          "text-xs font-semibold",
+          if(@can_slap?, do: "text-amber-400", else: "text-zinc-500")
+        ]}>
+          Slap!
+        </span>
+      </div>
     </div>
     """
   end
@@ -288,7 +349,11 @@ defmodule ParakeetWeb.GameComponents do
 
   def game_log(assigns) do
     ~H"""
-    <details id="game-log-drawer" phx-hook=".KeepOpen" class="group rounded-xl border border-zinc-700 bg-zinc-900/60">
+    <details
+      id="game-log-drawer"
+      phx-hook=".KeepOpen"
+      class="group rounded-xl border border-zinc-700 bg-zinc-900/60"
+    >
       <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between text-sm font-semibold text-zinc-300 hover:text-white transition-colors">
         <span class="flex items-center gap-2">
           <.icon
@@ -319,10 +384,10 @@ defmodule ParakeetWeb.GameComponents do
       </div>
     </details>
     <script :type={Phoenix.LiveView.ColocatedHook} name=".KeepOpen">
-    export default {
-      beforeUpdate() { this._open = this.el.open },
-      updated() { this.el.open = this._open }
-    }
+      export default {
+        beforeUpdate() { this._open = this.el.open },
+        updated() { this.el.open = this._open }
+      }
     </script>
     """
   end
@@ -394,13 +459,19 @@ defmodule ParakeetWeb.GameComponents do
     ~H"""
     <div class="w-24 h-[134px] rounded-lg bg-white shadow-lg relative overflow-hidden select-none">
       <div class="absolute inset-[2px] rounded-md border border-zinc-200">
-        <div class={["absolute top-1.5 left-2 flex flex-col items-center leading-none", suit_color_card(@card.suit)]}>
-          <span class="text-sm font-bold">{format_face(@card)}</span>
-          <span class="text-[10px]">{suit_symbol(@card.suit)}</span>
+        <div class={[
+          "absolute top-1.5 left-2 flex flex-col items-center leading-none",
+          suit_color_card(@card.suit)
+        ]}>
+          <span class="text-base font-bold">{format_face(@card)}</span>
+          <span class="text-xs">{suit_symbol(@card.suit)}</span>
         </div>
-        <div class={["absolute bottom-1.5 right-2 flex flex-col items-center leading-none rotate-180", suit_color_card(@card.suit)]}>
-          <span class="text-sm font-bold">{format_face(@card)}</span>
-          <span class="text-[10px]">{suit_symbol(@card.suit)}</span>
+        <div class={[
+          "absolute bottom-1.5 right-2 flex flex-col items-center leading-none rotate-180",
+          suit_color_card(@card.suit)
+        ]}>
+          <span class="text-base font-bold">{format_face(@card)}</span>
+          <span class="text-xs">{suit_symbol(@card.suit)}</span>
         </div>
         <div class={["absolute inset-0 flex items-center justify-center", suit_color_card(@card.suit)]}>
           <span class="text-4xl">{suit_symbol(@card.suit)}</span>

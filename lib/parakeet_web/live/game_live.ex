@@ -30,28 +30,37 @@ defmodule ParakeetWeb.GameLive do
           true ->
             session_token = session["session_token"]
 
-            if connected?(socket) do
-              Phoenix.PubSub.subscribe(Parakeet.PubSub, "game:#{code}")
-              Table.rejoin(table_pid, session_token, player_name, self())
-            end
+            case safe_get_state(table.engine_pid) do
+              nil ->
+                {:ok,
+                 socket
+                 |> put_flash(:error, "Game is no longer running")
+                 |> push_navigate(to: ~p"/den")}
 
-            game = Engine.get_state(table.engine_pid)
-            player_idx = Table.engine_idx(table_pid, session_token)
+              game ->
+                if connected?(socket) do
+                  Phoenix.PubSub.subscribe(Parakeet.PubSub, "game:#{code}")
+                  Table.rejoin(table_pid, session_token, player_name, self())
+                end
 
-            {:ok,
-             assign(socket,
-               code: code,
-               table_pid: table_pid,
-               session_token: session_token,
-               engine_pid: table.engine_pid,
-               game: game,
-               player_name: player_name,
-               player_idx: player_idx,
+                player_idx = Table.engine_idx(table_pid, session_token)
+
+                {:ok,
+                 assign(socket,
+                   code: code,
+                   table_pid: table_pid,
+                   session_token: session_token,
+                   engine_pid: table.engine_pid,
+                   game: game,
+                   player_name: player_name,
+                   player_idx: player_idx,
                log: ["Game started!"],
                event_flash: nil,
                event_flash_ref: nil,
-               cooldown?: false
-             )}
+               cooldown?: false,
+               card_history: []
+                 )}
+            end
         end
 
       :not_found ->
@@ -96,6 +105,7 @@ defmodule ParakeetWeb.GameLive do
               <.pile game={@game} />
               <.event_flash event_flash={@event_flash} />
             </div>
+            <.card_history cards={@card_history} />
             <.game_controls game={@game} player_idx={@player_idx} cooldown?={@cooldown?} />
           </div>
         <% end %>
@@ -119,30 +129,15 @@ defmodule ParakeetWeb.GameLive do
 
     game = Engine.play_turn(socket.assigns.engine_pid)
 
-    msgs = ["#{old_player.name} plays #{format_card(played_card)}"]
+    msg = "#{old_player.name} plays #{format_card(played_card)}"
 
-    {msgs, event_flash} =
-      if CardStack.count(old_game.pile) > 0 and CardStack.count(game.pile) == 0 do
-        collector = Enum.at(game.players, game.current_player_idx)
-
-        flash = %{
-          type: :challenge_win,
-          label: "Challenge won!",
-          detail: "#{collector.name} collects the pile"
-        }
-
-        {msgs ++ ["── New round ── #{collector.name} collects the pile"], flash}
-      else
-        {msgs, nil}
-      end
-
-    for msg <- msgs, do: broadcast_game_update(socket.assigns.code, game, msg, event_flash)
+    broadcast_game_update(socket.assigns.code, game, msg, nil)
     maybe_notify_game_over(socket, game)
 
     socket =
       socket
-      |> assign(game: game, log: socket.assigns.log ++ msgs)
-      |> set_event_flash(event_flash)
+      |> assign(game: game, log: socket.assigns.log ++ [msg])
+      |> push_card_history(played_card)
 
     {:noreply, socket}
   end
@@ -184,6 +179,7 @@ defmodule ParakeetWeb.GameLive do
 
     socket =
       socket
+      |> detect_new_card(game)
       |> assign(game: game, log: socket.assigns.log ++ msgs)
       |> set_event_flash(event_flash)
 
@@ -198,8 +194,11 @@ defmodule ParakeetWeb.GameLive do
 
   @impl true
   def handle_info({:game_update, game, msg, event_flash}, socket) do
+    maybe_notify_game_over(socket, game)
+
     socket =
       socket
+      |> detect_new_card(game)
       |> assign(game: game, log: socket.assigns.log ++ [msg])
       |> set_event_flash(event_flash)
 
@@ -207,7 +206,41 @@ defmodule ParakeetWeb.GameLive do
   end
 
   def handle_info({:game_update, game, msg}, socket) do
-    {:noreply, assign(socket, game: game, log: socket.assigns.log ++ [msg])}
+    maybe_notify_game_over(socket, game)
+
+    socket =
+      socket
+      |> detect_new_card(game)
+      |> assign(game: game, log: socket.assigns.log ++ [msg])
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:game_finished, game}, socket) do
+    Table.update_game_status(socket.assigns.table_pid, :finished)
+    {:noreply, assign(socket, game: game)}
+  end
+
+  @impl true
+  def handle_info({:challenge_resolved, game}, socket) do
+    winner = Enum.at(game.players, game.current_player_idx)
+
+    flash = %{
+      type: :challenge_win,
+      label: "Challenge won!",
+      detail: "#{winner.name} collects the pile"
+    }
+
+    msg = "── New round ── #{winner.name} collects the pile"
+    maybe_notify_game_over(socket, game)
+
+    socket =
+      socket
+      |> detect_new_card(game)
+      |> assign(game: game, log: socket.assigns.log ++ [msg])
+      |> set_event_flash(flash)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -241,6 +274,34 @@ defmodule ParakeetWeb.GameLive do
       "game:#{code}",
       {:game_update, game, msg, event_flash}
     )
+  end
+
+  defp push_card_history(socket, card) do
+    history = Enum.take([card | socket.assigns.card_history], 4)
+    assign(socket, card_history: history)
+  end
+
+  defp detect_new_card(socket, new_game) do
+    old_count = CardStack.count(socket.assigns.game.pile)
+    new_count = CardStack.count(new_game.pile)
+
+    cond do
+      new_count > old_count ->
+        [top | _] = new_game.pile.cards
+        push_card_history(socket, top)
+
+      new_count < old_count ->
+        assign(socket, card_history: [])
+
+      true ->
+        socket
+    end
+  end
+
+  defp safe_get_state(pid) do
+    Engine.get_state(pid)
+  catch
+    :exit, _ -> nil
   end
 
   defp slap_label(:doubles), do: "doubles"

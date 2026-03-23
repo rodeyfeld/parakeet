@@ -3,6 +3,8 @@ defmodule Parakeet.Den.Table do
   use GenServer, restart: :temporary
 
   @grace_period_ms 30_000
+  @max_players 6
+  @bot_pool ~w(Polly Tweety Coco Kiwi Rio Mango Skye Pip Zazu Iago)
 
   @type engine_status :: :waiting | :running | :finished
 
@@ -12,6 +14,7 @@ defmodule Parakeet.Den.Table do
     :host,
     :engine_pid,
     players: %{},
+    bots: [],
     game_status: :waiting
   ]
 
@@ -40,6 +43,9 @@ defmodule Parakeet.Den.Table do
 
   def engine_idx(pid, session_token),
     do: GenServer.call(pid, {:engine_idx, session_token})
+
+  def add_bot(pid), do: GenServer.call(pid, :add_bot)
+  def remove_bot(pid, bot_name), do: GenServer.call(pid, {:remove_bot, bot_name})
 
   def update_game_status(pid, status),
     do: GenServer.cast(pid, {:update_game_status, status})
@@ -84,6 +90,29 @@ defmodule Parakeet.Den.Table do
   def handle_call({:engine_idx, session_token}, _from, state) do
     player = Map.get(state.players, session_token)
     {:reply, if(player, do: player.engine_idx), state}
+  end
+
+  @impl true
+  def handle_call(:add_bot, _from, state) do
+    total = length(player_names(state))
+
+    if total >= @max_players or state.engine_pid != nil do
+      {:reply, to_map(state), state}
+    else
+      name = next_bot_name(state.bots)
+      new_state = %{state | bots: state.bots ++ [name]}
+      {:reply, to_map(new_state), new_state}
+    end
+  end
+
+  @impl true
+  def handle_call({:remove_bot, bot_name}, _from, state) do
+    if state.engine_pid != nil do
+      {:reply, to_map(state), state}
+    else
+      new_state = %{state | bots: List.delete(state.bots, bot_name)}
+      {:reply, to_map(new_state), new_state}
+    end
   end
 
   @impl true
@@ -134,12 +163,17 @@ defmodule Parakeet.Den.Table do
   end
 
   defp start_engine(state) do
-    names = player_names(state)
-    {:ok, engine_pid} = Parakeet.Game.Dealer.start_game(names)
+    human_players =
+      Enum.reject(state.players, fn {_token, p} -> p.timer != nil end)
+
+    human_specs = Enum.map(human_players, fn {_token, p} -> %{name: p.name, bot: false} end)
+    bot_specs = Enum.map(state.bots, fn name -> %{name: name, bot: true} end)
+    player_specs = human_specs ++ bot_specs
+
+    {:ok, engine_pid} = Parakeet.Game.Dealer.start_game(player_specs, "game:#{state.code}")
 
     token_to_idx =
-      state.players
-      |> Enum.reject(fn {_token, p} -> p.timer != nil end)
+      human_players
       |> Enum.map(fn {token, _p} -> token end)
       |> Enum.with_index()
       |> Map.new()
@@ -149,6 +183,19 @@ defmodule Parakeet.Den.Table do
         {token, %{p | engine_idx: Map.get(token_to_idx, token)}}
       end)
 
+    human_count = map_size(token_to_idx)
+
+    state.bots
+    |> Enum.with_index(human_count)
+    |> Enum.each(fn {name, idx} ->
+      Parakeet.Game.BotSupervisor.start_bot(%{
+        engine_pid: engine_pid,
+        player_idx: idx,
+        topic: "game:#{state.code}",
+        name: name
+      })
+    end)
+
     %{state | engine_pid: engine_pid, game_status: :running, players: players}
   end
 
@@ -157,7 +204,12 @@ defmodule Parakeet.Den.Table do
     Registry.register(Parakeet.Den.SessionRegistry, session_token, state.code)
 
     players =
-      Map.put(state.players, session_token, %{name: player_name, engine_idx: nil, ref: ref, timer: nil})
+      Map.put(state.players, session_token, %{
+        name: player_name,
+        engine_idx: nil,
+        ref: ref,
+        timer: nil
+      })
 
     %{state | players: players}
   end
@@ -173,7 +225,12 @@ defmodule Parakeet.Den.Table do
         ref = Process.monitor(liveview_pid)
 
         players =
-          Map.put(state.players, session_token, %{player | name: player_name, ref: ref, timer: nil})
+          Map.put(state.players, session_token, %{
+            player
+            | name: player_name,
+              ref: ref,
+              timer: nil
+          })
 
         %{state | players: players}
     end
@@ -233,14 +290,20 @@ defmodule Parakeet.Den.Table do
   defp reassign_host(state, _removed_token), do: state
 
   defp player_names(state) do
-    players =
+    human_players =
       if state.engine_pid == nil do
         Enum.reject(state.players, fn {_token, p} -> p.timer != nil end)
       else
         state.players
       end
 
-    Enum.map(players, fn {_token, p} -> p.name end)
+    human_names = Enum.map(human_players, fn {_token, p} -> p.name end)
+    human_names ++ state.bots
+  end
+
+  defp next_bot_name(existing_bots) do
+    Enum.find(@bot_pool, fn name -> name not in existing_bots end) ||
+      "Bot #{length(existing_bots) + 1}"
   end
 
   defp to_map(state) do
@@ -252,6 +315,7 @@ defmodule Parakeet.Den.Table do
       engine_pid: state.engine_pid,
       game_status: state.game_status,
       player_names: player_names(state),
+      bot_names: state.bots,
       host: if(host_player, do: host_player.name)
     }
   end

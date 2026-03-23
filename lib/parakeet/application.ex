@@ -16,6 +16,7 @@ defmodule Parakeet.Application do
       {Registry, keys: :unique, name: Parakeet.Den.SessionRegistry},
       Parakeet.Den.PitBoss,
       Parakeet.Game.Dealer,
+      Parakeet.Game.BotSupervisor,
       ParakeetWeb.Endpoint
     ]
 

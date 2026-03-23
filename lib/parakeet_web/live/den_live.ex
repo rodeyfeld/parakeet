@@ -127,7 +127,8 @@ defmodule ParakeetWeb.DenLive do
     else
       case PitBoss.find_table(code) do
         {:ok, pid} ->
-          table = Table.join(pid, socket.assigns.session_token, socket.assigns.player_name, self())
+          table =
+            Table.join(pid, socket.assigns.session_token, socket.assigns.player_name, self())
 
           {:noreply,
            socket
@@ -150,7 +151,9 @@ defmodule ParakeetWeb.DenLive do
   def handle_event("rejoin_table", _params, socket) do
     case PitBoss.find_table_by_token(socket.assigns.session_token) do
       {:ok, pid} ->
-        table = Table.rejoin(pid, socket.assigns.session_token, socket.assigns.player_name, self())
+        table =
+          Table.rejoin(pid, socket.assigns.session_token, socket.assigns.player_name, self())
+
         {:noreply, assign(socket, pid: pid, table: table, active_table: nil)}
 
       :not_found ->
@@ -164,7 +167,25 @@ defmodule ParakeetWeb.DenLive do
     if pid, do: Table.leave(pid, socket.assigns.session_token)
 
     {:noreply,
-     assign(socket, pid: nil, table: nil, active_table: nil, active_table_pid: nil, tables: PitBoss.list_tables())}
+     assign(socket,
+       pid: nil,
+       table: nil,
+       active_table: nil,
+       active_table_pid: nil,
+       tables: PitBoss.list_tables()
+     )}
+  end
+
+  @impl true
+  def handle_event("add_bot", _params, socket) do
+    table = Table.add_bot(socket.assigns.pid)
+    {:noreply, assign(socket, table: table)}
+  end
+
+  @impl true
+  def handle_event("remove_bot", %{"name" => name}, socket) do
+    table = Table.remove_bot(socket.assigns.pid, name)
+    {:noreply, assign(socket, table: table)}
   end
 
   @impl true

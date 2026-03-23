@@ -62,9 +62,10 @@ defmodule ParakeetWeb.DenLiveTest do
       Process.sleep(500)
 
       tables = Parakeet.Den.PitBoss.list_tables()
+
       refute Enum.any?(tables, fn t ->
-        "OldName" in t.player_names
-      end)
+               "OldName" in t.player_names
+             end)
     end
   end
 end

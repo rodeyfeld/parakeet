@@ -4,6 +4,9 @@ defmodule ParakeetWeb.DenComponents do
   attr :table, :map, required: true
 
   def waiting_room(assigns) do
+    bot_names = Map.get(assigns.table, :bot_names, [])
+    assigns = assign(assigns, :bot_names, bot_names)
+
     ~H"""
     <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-5">
       <div class="flex items-center justify-between">
@@ -19,10 +22,38 @@ defmodule ParakeetWeb.DenComponents do
         <div class="flex flex-wrap gap-2">
           <span
             :for={name <- @table.player_names}
-            class="rounded-full bg-zinc-800 border border-zinc-700 px-4 py-1.5 text-sm font-medium"
+            class={[
+              "rounded-full border px-4 py-1.5 text-sm font-medium inline-flex items-center gap-1.5",
+              if(name in @bot_names,
+                do: "bg-violet-900/40 border-violet-600/50 text-violet-300",
+                else: "bg-zinc-800 border-zinc-700"
+              )
+            ]}
           >
+            <%= if name in @bot_names do %>
+              <.icon name="hero-cpu-chip-mini" class="w-3.5 h-3.5 text-violet-400" />
+            <% end %>
             {name}
+            <%= if name in @bot_names and @table.engine_pid == nil do %>
+              <button
+                phx-click="remove_bot"
+                phx-value-name={name}
+                class="text-violet-500 hover:text-violet-300 transition-colors -mr-1"
+              >
+                <.icon name="hero-x-mark-mini" class="w-3.5 h-3.5" />
+              </button>
+            <% end %>
           </span>
+
+          <%= if @table.engine_pid == nil and length(@table.player_names) < 6 do %>
+            <button
+              phx-click="add_bot"
+              id="add-bot-btn"
+              class="rounded-full border border-dashed border-zinc-600 px-4 py-1.5 text-sm text-zinc-400 hover:text-violet-300 hover:border-violet-500 transition-all inline-flex items-center gap-1.5"
+            >
+              <.icon name="hero-cpu-chip-mini" class="w-3.5 h-3.5" /> Add Bot
+            </button>
+          <% end %>
         </div>
       </div>
 
@@ -72,7 +103,9 @@ defmodule ParakeetWeb.DenComponents do
     <div class="rounded-xl border border-emerald-700/50 bg-emerald-900/20 p-5 space-y-3">
       <div class="flex items-center justify-between">
         <div class="space-y-1">
-          <div class="text-xs uppercase tracking-wider text-emerald-400 font-semibold">Active Table</div>
+          <div class="text-xs uppercase tracking-wider text-emerald-400 font-semibold">
+            Active Table
+          </div>
           <h2 class="text-lg font-bold">{@table.name}</h2>
         </div>
         <div class="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 border border-zinc-700">

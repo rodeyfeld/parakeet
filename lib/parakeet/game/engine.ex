@@ -4,6 +4,7 @@ defmodule Parakeet.Game.Engine do
   use GenServer
 
   @shutdown_delay_ms 120_000
+  @slap_window_ms 250
   @type status :: :running | :finished
 
   defstruct [
@@ -16,15 +17,17 @@ defmodule Parakeet.Game.Engine do
     :current_player_idx,
     :winner,
     :slap_type,
+    :topic,
     status: :running
   ]
 
-  def start_link(player_names) do
-    GenServer.start_link(__MODULE__, player_names)
+  def start_link({player_names, topic}) do
+    GenServer.start_link(__MODULE__, {player_names, topic})
   end
 
   def get_state(pid), do: GenServer.call(pid, :get_state)
   def play_turn(pid), do: GenServer.call(pid, :play_turn)
+  def play_turn(pid, player_idx), do: GenServer.call(pid, {:play_turn, player_idx})
   def slap(pid, player_idx), do: GenServer.call(pid, {:slap, player_idx})
   def forfeit(pid, player_idx), do: GenServer.call(pid, {:forfeit, player_idx})
 
@@ -33,9 +36,31 @@ defmodule Parakeet.Game.Engine do
     {:reply, state, state}
   end
 
+  def handle_call(:play_turn, _from, %{challenger_idx: c, chances: 0} = state) when c != nil do
+    {:reply, state, state}
+  end
+
   def handle_call(:play_turn, _from, state) do
     new_state = handle_turn(state)
     {:reply, new_state, new_state}
+  end
+
+  def handle_call({:play_turn, _player_idx}, _from, %{status: :finished} = state) do
+    {:reply, state, state}
+  end
+
+  def handle_call({:play_turn, _player_idx}, _from, %{challenger_idx: c, chances: 0} = state)
+      when c != nil do
+    {:reply, state, state}
+  end
+
+  def handle_call({:play_turn, player_idx}, _from, state) do
+    if player_idx == state.current_player_idx do
+      new_state = handle_turn(state)
+      {:reply, new_state, new_state}
+    else
+      {:reply, state, state}
+    end
   end
 
   @impl true
@@ -69,13 +94,34 @@ defmodule Parakeet.Game.Engine do
     {:stop, :normal, state}
   end
 
-  @impl true
-  def init(player_names) do
-    {:ok, start_game(player_names)}
+  def handle_info(:resolve_challenge_win, state) do
+    if state.challenger_idx != nil and state.chances == 0 do
+      new_state = handle_challenge_win(state)
+
+      Phoenix.PubSub.broadcast(
+        Parakeet.PubSub,
+        state.topic,
+        {:challenge_resolved, new_state}
+      )
+
+      {:noreply, new_state}
+    else
+      {:noreply, state}
+    end
   end
 
-  defp start_game(player_names) do
-    players = Enum.map(player_names, fn name -> %Player{name: name} end)
+  @impl true
+  def init({player_names, topic}) do
+    {:ok, start_game(player_names, topic)}
+  end
+
+  defp start_game(player_specs, topic) do
+    players =
+      Enum.map(player_specs, fn
+        %{name: name, bot: bot} -> %Player{name: name, bot: bot}
+        name when is_binary(name) -> %Player{name: name}
+      end)
+
     deck = CardStack.shuffle(Deck.new())
 
     players = Deck.deal(players, deck, 0)
@@ -87,7 +133,8 @@ defmodule Parakeet.Game.Engine do
       current_player_idx: 0,
       chances: 0,
       challenger_idx: nil,
-      challenge_card: nil
+      challenge_card: nil,
+      topic: topic
     }
   end
 
@@ -266,7 +313,8 @@ defmodule Parakeet.Game.Engine do
 
     cond do
       new_chances <= 0 ->
-        handle_challenge_win(state)
+        Process.send_after(self(), :resolve_challenge_win, @slap_window_ms)
+        %{state | chances: 0}
 
       true ->
         %{state | chances: new_chances}

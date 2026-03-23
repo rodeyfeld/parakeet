@@ -1,4 +1,4 @@
-defmodule Parakeet.Game.Dealer do
+defmodule Parakeet.Game.BotSupervisor do
   use DynamicSupervisor
 
   def start_link(init_arg) do
@@ -10,7 +10,7 @@ defmodule Parakeet.Game.Dealer do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  def start_game(player_names, topic) do
-    DynamicSupervisor.start_child(__MODULE__, {Parakeet.Game.Engine, {player_names, topic}})
+  def start_bot(opts) do
+    DynamicSupervisor.start_child(__MODULE__, {Parakeet.Game.Bot, opts})
   end
 end
