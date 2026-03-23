@@ -9,7 +9,7 @@ defmodule Parakeet.Game.Bot do
   @min_slap_delay_ms 750
   @max_slap_delay_ms 1500
   @slap_chance 0.6
-  @pile_win_cooldown_ms 2000
+  @pile_win_cooldown_ms 1500
 
   defstruct [
     :engine_pid,

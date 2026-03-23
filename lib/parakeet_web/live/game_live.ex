@@ -7,7 +7,7 @@ defmodule ParakeetWeb.GameLive do
   import ParakeetWeb.GameComponents
 
   @event_flash_ms 2_500
-  @cooldown_ms 3_000
+  @cooldown_ms 1_500
 
   @impl true
   def mount(%{"code" => code}, session, socket) do
