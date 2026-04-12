@@ -84,10 +84,7 @@ defmodule ParakeetWeb.DenLive do
         end
       catch
         :exit, _ ->
-          {:noreply,
-           socket
-           |> assign(pid: nil, table: nil, tables: PitBoss.list_tables())
-           |> check_active_table()}
+          {:noreply, handle_dead_table(socket)}
       end
     else
       {:noreply, socket |> assign(tables: PitBoss.list_tables()) |> check_active_table()}
@@ -143,8 +140,9 @@ defmodule ParakeetWeb.DenLive do
   @impl true
   def handle_event("start_game", _params, socket) do
     table = Table.start_game(socket.assigns.pid)
-
     {:noreply, push_navigate(socket, to: ~p"/game/#{table.code}")}
+  catch
+    :exit, _ -> {:noreply, handle_dead_table(socket)}
   end
 
   @impl true
@@ -174,23 +172,35 @@ defmodule ParakeetWeb.DenLive do
        active_table_pid: nil,
        tables: PitBoss.list_tables()
      )}
+  catch
+    :exit, _ -> {:noreply, handle_dead_table(socket)}
   end
 
   @impl true
   def handle_event("add_bot", _params, socket) do
     table = Table.add_bot(socket.assigns.pid)
     {:noreply, assign(socket, table: table)}
+  catch
+    :exit, _ -> {:noreply, handle_dead_table(socket)}
   end
 
   @impl true
   def handle_event("remove_bot", %{"name" => name}, socket) do
     table = Table.remove_bot(socket.assigns.pid, name)
     {:noreply, assign(socket, table: table)}
+  catch
+    :exit, _ -> {:noreply, handle_dead_table(socket)}
   end
 
   @impl true
   def handle_event("refresh_tables", _params, socket) do
     {:noreply, assign(socket, tables: PitBoss.list_tables())}
+  end
+
+  defp handle_dead_table(socket) do
+    socket
+    |> put_flash(:error, "Table closed — it may have timed out")
+    |> assign(pid: nil, table: nil, active_table: nil, active_table_pid: nil, tables: PitBoss.list_tables())
   end
 
   defp check_active_table(socket) do

@@ -100,12 +100,14 @@ defmodule Parakeet.Game.Engine do
 
   def handle_info(:resolve_challenge_win, state) do
     if state.challenger_idx != nil and state.chances == 0 do
+      challenge_card = state.challenge_card
+      pile_size = CardStack.count(state.pile) + CardStack.count(state.penalty_pile)
       new_state = handle_challenge_win(state)
 
       Phoenix.PubSub.broadcast(
         Parakeet.PubSub,
         state.topic,
-        {:challenge_resolved, new_state}
+        {:challenge_resolved, new_state, challenge_card, pile_size}
       )
 
       {:noreply, new_state}

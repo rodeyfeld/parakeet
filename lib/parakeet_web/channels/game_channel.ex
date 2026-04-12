@@ -96,7 +96,7 @@ defmodule ParakeetWeb.GameChannel do
     {:noreply, socket}
   end
 
-  def handle_info({:challenge_resolved, game}, socket) do
+  def handle_info({:challenge_resolved, game, challenge_card, pile_size}, socket) do
     maybe_notify_game_over(socket, game)
     winner = Enum.at(game.players, game.current_player_idx)
     socket = assign(socket, :game, game)
@@ -106,7 +106,10 @@ defmodule ParakeetWeb.GameChannel do
       log: "── New round ── #{winner.name} collects the pile",
       event_flash: %{
         type: "challenge_win",
-        detail: "#{winner.name} collects the pile"
+        detail: "#{winner.name} wins #{pile_size} cards",
+        winner_idx: game.current_player_idx,
+        challenge_card: serialize_card(challenge_card),
+        pile_size: pile_size
       }
     })
 
@@ -177,6 +180,7 @@ defmodule ParakeetWeb.GameChannel do
       {:noreply, socket}
     else
       old_count = CardStack.count(player.hand)
+      old_pile_size = CardStack.count(game.pile) + CardStack.count(game.penalty_pile)
       new_game = Engine.slap(socket.assigns.engine_pid, idx)
       slapped_player = Enum.at(new_game.players, idx)
       new_count = CardStack.count(slapped_player.hand)
@@ -188,7 +192,9 @@ defmodule ParakeetWeb.GameChannel do
           flash = %{
             type: "slap",
             label: String.capitalize(label),
-            detail: "#{player.name} wins the pile!"
+            detail: "#{player.name} wins #{old_pile_size} cards",
+            winner_idx: idx,
+            pile_size: old_pile_size
           }
 
           {[
@@ -287,11 +293,18 @@ defmodule ParakeetWeb.GameChannel do
   defp serialize_event_flash(nil), do: nil
 
   defp serialize_event_flash(flash) do
-    %{
+    base = %{
       type: to_string(flash.type),
-      label: flash.label,
-      detail: flash.detail
+      label: flash[:label],
+      detail: flash.detail,
+      winner_idx: flash[:winner_idx],
+      pile_size: flash[:pile_size]
     }
+
+    case flash[:challenge_card] do
+      nil -> base
+      card -> Map.put(base, :challenge_card, card)
+    end
   end
 
   # -- Helpers --

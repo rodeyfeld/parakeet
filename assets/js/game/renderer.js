@@ -65,16 +65,16 @@ export function createRenderer(container) {
       el("div", "shrink-0 w-full max-w-2xl mx-auto", "", "history-slot"),
     )
     const pileWrap = el("div", "relative w-full flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden", "", "pile-section")
+    const pileSlot = el("div", "flex-1 min-h-0 min-w-0", "", "pile-slot")
     const pileFlashHost = el(
       "div",
-      "shrink-0 w-full overflow-hidden pointer-events-none flex justify-center px-3 pt-1",
+      "absolute inset-x-0 top-0 z-20 pointer-events-none flex items-start justify-center px-3 pt-2",
       "",
       "pile-event-flash-host",
     )
-    pileFlashHost.style.height = "0px"
-    const pileSlot = el("div", "flex-1 min-h-0 min-w-0", "", "pile-slot")
-    pileWrap.appendChild(pileFlashHost)
+    pileFlashHost.style.opacity = "0"
     pileWrap.appendChild(pileSlot)
+    pileWrap.appendChild(pileFlashHost)
     gameArea.appendChild(pileWrap)
     gameArea.appendChild(el("div", "shrink-0 w-full flex justify-center pt-1.5 pb-0.5", "", "controls-slot"))
     body.appendChild(gameArea)
@@ -160,50 +160,51 @@ export function createRenderer(container) {
         if (pileFlashHost) {
           pileFlashHost.innerHTML = ""
           if (nextFlashKey) {
-            const flashEl = renderEventFlashInner(state.eventFlash)
+            const flashEl = renderEventFlashInner(state.eventFlash, game)
             pileFlashHost.appendChild(flashEl)
 
             requestAnimationFrame(() => {
               const inner = pileFlashHost.querySelector("#event-flash-inner")
               if (!inner) return
-              pileFlashHost.style.height = "auto"
-              const naturalH = pileFlashHost.offsetHeight
-              pileFlashHost.style.height = "0px"
+
               const tl = gsap.timeline({
                 onComplete: () => {
                   flashTimeline = null
+                  pileFlashHost.innerHTML = ""
+                  gsap.set(pileFlashHost, { opacity: 0 })
                 },
               })
 
-              tl.fromTo(
-                pileFlashHost,
-                { height: 0 },
-                { height: naturalH, duration: 0.3, ease: "power2.out" },
-              )
-              tl.fromTo(
-                inner,
-                { opacity: 0, y: -6 },
-                { opacity: 1, y: 0, duration: 0.24, ease: "power2.out" },
-                "<0.06",
-              )
-              tl.to(inner, { opacity: 0, y: -4, duration: 0.3, ease: "power2.in" }, "+=2.0")
-              tl.to(
-                pileFlashHost,
-                {
-                  height: 0,
-                  duration: 0.28,
-                  ease: "power2.inOut",
-                  onComplete: () => {
-                    pileFlashHost.innerHTML = ""
-                  },
-                },
-                "-=0.1",
-              )
+              gsap.set(pileFlashHost, { opacity: 1 })
+              gsap.set(inner, { opacity: 0, scale: 0.7, y: -12 })
+
+              tl.to(inner, {
+                opacity: 1, scale: 1, y: 0,
+                duration: 0.35, ease: "back.out(1.4)",
+              })
+
+              tl.to(inner, {
+                opacity: 0, scale: 0.85, y: -8,
+                duration: 0.4, ease: "power2.in",
+              }, "+=2.5")
 
               flashTimeline = tl
             })
           } else {
-            gsap.to(pileFlashHost, { height: 0, duration: 0.25, ease: "power2.inOut" })
+            const inner = pileFlashHost.querySelector("#event-flash-inner")
+            if (inner) {
+              gsap.to(inner, {
+                opacity: 0, scale: 0.85, y: -8,
+                duration: 0.3, ease: "power2.in",
+                onComplete: () => {
+                  pileFlashHost.innerHTML = ""
+                  gsap.set(pileFlashHost, { opacity: 0 })
+                },
+              })
+            } else {
+              pileFlashHost.innerHTML = ""
+              gsap.set(pileFlashHost, { opacity: 0 })
+            }
           }
         }
       }
@@ -536,33 +537,62 @@ export function createRenderer(container) {
     return wrap
   }
 
-  /** Compact banner anchored to the pile (does not resize the history strip above). */
-  function renderEventFlashInner(flash) {
+  function renderEventFlashInner(flash, game) {
     const isSlap = flash.type === "slap"
     const isChallenge = flash.type === "challenge_win"
 
-    const shell =
-      isSlap
-        ? "border-amber-400/25 bg-amber-950/80 text-amber-50/95 shadow-[0_8px_28px_rgba(0,0,0,0.35)]"
-        : isChallenge
-          ? "border-emerald-400/28 bg-emerald-950/80 text-emerald-50/95 shadow-[0_8px_28px_rgba(0,0,0,0.35)]"
-          : "border-zinc-500/25 bg-zinc-900/90 text-zinc-100 shadow-[0_8px_28px_rgba(0,0,0,0.35)]"
+    const winnerIdx = flash.winner_idx
+    const winner = winnerIdx != null && game ? game.players[winnerIdx] : null
+    const c = winnerIdx != null ? playerFill(winnerIdx) : "#a1a1aa"
+    const winnerName = winner ? winner.name : "?"
+
+    const mix = (pct) => `color-mix(in srgb, ${c} ${pct}%, transparent)`
 
     const eyebrow = isSlap ? "Slap" : isChallenge ? "Challenge" : "Round"
-    const subline = isChallenge ? flash.label : null
+    const headline = flash.label || (isChallenge ? "Won" : "")
+    const pileSize = flash.pile_size
 
     const inner = el(
       "div",
-      `pointer-events-none w-full max-w-[min(28rem,calc(100vw-1rem))] mx-auto rounded-lg border backdrop-blur-md px-3 py-1.5 ${shell}`,
+      "pointer-events-none w-full max-w-[min(20rem,calc(100vw-2rem))] mx-auto rounded-2xl backdrop-blur-xl flex items-center gap-3 px-4 py-3",
     )
     inner.id = "event-flash-inner"
-    inner.innerHTML = `
-      <div class="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-0 text-center leading-tight">
-        <span class="text-[8px] font-bold uppercase tracking-[0.2em] text-white/50">${eyebrow}</span>
-        ${subline ? `<span class="text-[11px] font-medium text-white/70">${subline}</span>` : ""}
+    inner.style.cssText = [
+      `background:linear-gradient(135deg, color-mix(in srgb, ${c} 18%, #0c0c0c), color-mix(in srgb, ${c} 8%, #080808))`,
+      `border:1px solid ${mix(20)}`,
+      `box-shadow:0 0 30px 4px ${mix(10)}, 0 12px 32px rgba(0,0,0,0.4)`,
+    ].join(";")
+
+    const iconWrap = el("div", "shrink-0 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden")
+    iconWrap.style.cssText = `background:${mix(15)};border:2px solid ${mix(35)};`
+    if (winner) {
+      iconWrap.appendChild(createPlayerAvatarSvg(winner, c, "w-6 h-6"))
+    }
+    inner.appendChild(iconWrap)
+
+    const text = el("div", "flex-1 min-w-0")
+    const pileBadge = pileSize != null
+      ? `<span class="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold rounded-full px-1.5 py-0.5" style="background:${mix(12)};color:${c}">${pileSize} cards</span>`
+      : ""
+    text.innerHTML = `
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-[9px] font-bold uppercase tracking-[0.18em]" style="color:${mix(70)}">${eyebrow}</span>
+        ${headline ? `<span class="text-sm font-bold text-white/90">${headline}</span>` : ""}
+        ${pileBadge}
       </div>
-      <p class="text-[10px] text-white/55 text-center mt-0.5 leading-snug line-clamp-2">${flash.detail}</p>
+      <p class="text-xs text-white/55 leading-snug mt-0.5 truncate">${winnerName} wins the pile</p>
     `
+    inner.appendChild(text)
+
+    if (isChallenge && flash.challenge_card) {
+      const cc = flash.challenge_card
+      const isRed = cc.suit === "hearts" || cc.suit === "diamonds"
+      const mini = el("div", "shrink-0 w-9 h-[3.25rem] rounded-lg bg-white flex flex-col items-center justify-center leading-none")
+      mini.style.cssText = "box-shadow:0 2px 8px rgba(0,0,0,0.3);"
+      mini.innerHTML = `<span class="text-sm font-bold ${isRed ? "text-red-600" : "text-zinc-800"}">${formatCard(cc)}</span>`
+      inner.appendChild(mini)
+    }
+
     return inner
   }
 

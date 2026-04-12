@@ -62,7 +62,7 @@ defmodule Parakeet.Game.Bot do
     handle_react(react_to(state, game))
   end
 
-  def handle_info({:challenge_resolved, game}, state) do
+  def handle_info({:challenge_resolved, game, _challenge_card, _pile_size}, state) do
     handle_react(react_to(set_cooldown(state), game))
   end
 
@@ -120,6 +120,8 @@ defmodule Parakeet.Game.Bot do
       slapped_player = Enum.at(game.players, state.player_idx)
       new_count = CardStack.count(slapped_player.hand)
 
+      old_pile_size = CardStack.count(state.game.pile) + CardStack.count(state.game.penalty_pile)
+
       {msgs, event_flash} =
         if new_count > old_count do
           label = slap_label(game.slap_type)
@@ -127,7 +129,9 @@ defmodule Parakeet.Game.Bot do
           flash = %{
             type: :slap,
             label: String.capitalize(label),
-            detail: "#{state.name} wins the pile!"
+            detail: "#{state.name} wins #{old_pile_size} cards",
+            winner_idx: state.player_idx,
+            pile_size: old_pile_size
           }
 
           {[
