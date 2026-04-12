@@ -9,8 +9,8 @@ export const animate = {
     const inner = cardEl.firstElementChild
     if (!inner) return
     gsap.fromTo(inner,
-      { opacity: 0, y: -20, scale: 0.85 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: "back.out(1.7)" }
+      { opacity: 0, y: -14, scale: 0.88 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.2, ease: "back.out(1.5)" }
     )
   },
 
@@ -21,8 +21,8 @@ export const animate = {
     const tl = gsap.timeline()
     tl.fromTo(cards,
       { scale: 1 },
-      { scale: 0.88, duration: 0.08, ease: "power2.in" })
-      .to(cards, { scale: 1, duration: 0.3, ease: "elastic.out(1, 0.4)" })
+      { scale: 0.9, duration: 0.06, ease: "power2.in" })
+      .to(cards, { scale: 1, duration: 0.2, ease: "elastic.out(1, 0.35)" })
     return tl
   },
 
@@ -52,9 +52,9 @@ export const animate = {
     const tl = gsap.timeline({ onComplete: () => overlay.remove() })
     tl.fromTo(label,
       { opacity: 0, scale: 0.5 },
-      { opacity: 1, scale: 1, duration: 0.22, ease: "back.out(2)" },
+      { opacity: 1, scale: 1, duration: 0.15, ease: "back.out(2)" },
     )
-    tl.to(label, { opacity: 0, scale: 1.15, duration: 0.4, ease: "power2.in" }, "+=0.7")
+    tl.to(label, { opacity: 0, scale: 1.1, duration: 0.25, ease: "power2.in" }, "+=0.5")
 
     return tl
   },
@@ -91,7 +91,7 @@ export const animate = {
     gsap.killTweensOf(pileEl)
     gsap.fromTo(pileEl,
       { opacity: 1 },
-      { opacity: 0, duration: 0.4, ease: "power2.in" }
+      { opacity: 0, duration: 0.25, ease: "power2.in" }
     )
   },
 
@@ -99,7 +99,7 @@ export const animate = {
     if (!countEl) return
     gsap.fromTo(countEl,
       { scale: 1 },
-      { scale: 1.12, duration: 0.12, ease: "power2.out",
+      { scale: 1.1, duration: 0.08, ease: "power2.out",
         yoyo: true, repeat: 1 }
     )
   },
@@ -107,8 +107,8 @@ export const animate = {
   gameOver(bannerEl) {
     if (!bannerEl) return
     gsap.fromTo(bannerEl,
-      { opacity: 0, y: 20 },
-      { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }
+      { opacity: 0, y: 16 },
+      { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }
     )
   },
 }
