@@ -20,9 +20,9 @@ ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
 
-# install build dependencies
+# install build dependencies (curl: reliable Tailwind CLI download in CI; Erlang :httpc can stall on large GitHub assets)
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential git \
+  && apt-get install -y --no-install-recommends build-essential git curl \
   && rm -rf /var/lib/apt/lists/*
 
 # prepare build dir
@@ -46,7 +46,17 @@ RUN mkdir config
 COPY config/config.exs config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
-RUN mix assets.setup
+# Erlang :httpc (used by `mix tailwind.install`) frequently stalls on large GitHub
+# release assets inside Docker BuildKit. Fetch with curl instead, then let Mix
+# handle only esbuild (small npm tarball, no issue).
+# TAILWIND_VERSION must match config :tailwind, :version in config/config.exs.
+ARG TAILWIND_VERSION=4.1.12
+RUN mkdir -p _build \
+  && curl -fSL --retry 5 --retry-delay 2 --connect-timeout 30 --max-time 120 \
+    -o _build/tailwind-linux-x64 \
+    "https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-x64" \
+  && chmod +x _build/tailwind-linux-x64
+RUN mix esbuild.install --if-missing
 
 COPY priv priv
 
