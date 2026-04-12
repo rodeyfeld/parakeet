@@ -106,7 +106,6 @@ defmodule ParakeetWeb.GameChannel do
       log: "── New round ── #{winner.name} collects the pile",
       event_flash: %{
         type: "challenge_win",
-        label: "Challenge won!",
         detail: "#{winner.name} collects the pile"
       }
     })

@@ -549,7 +549,6 @@ export function createRenderer(container) {
           : "border-zinc-500/25 bg-zinc-900/90 text-zinc-100 shadow-[0_8px_28px_rgba(0,0,0,0.35)]"
 
     const eyebrow = isSlap ? "Slap" : isChallenge ? "Challenge" : "Round"
-    const headline = isSlap ? flash.label : "Pile secured"
     const subline = isChallenge ? flash.label : null
 
     const inner = el(
@@ -560,7 +559,6 @@ export function createRenderer(container) {
     inner.innerHTML = `
       <div class="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-0 text-center leading-tight">
         <span class="text-[8px] font-bold uppercase tracking-[0.2em] text-white/50">${eyebrow}</span>
-        <span class="text-[12px] font-bold">${headline}</span>
         ${subline ? `<span class="text-[11px] font-medium text-white/70">${subline}</span>` : ""}
       </div>
       <p class="text-[10px] text-white/55 text-center mt-0.5 leading-snug line-clamp-2">${flash.detail}</p>
