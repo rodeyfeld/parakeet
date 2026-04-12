@@ -81,16 +81,15 @@ export function featherBurst(anchorEl, opts = {}) {
     (baseColor ? paletteFromAccent(baseColor) : DEFAULT_PALETTE)
 
   const dramatic = Boolean(baseColor || paletteOpt)
-  let countEff = dramatic ? count + Math.floor(count * 0.35) : count
-  let distMaxEff = dramatic ? distanceMax * 1.22 : distanceMax
-  let distMinEff = dramatic ? distanceMin * 1.08 : distanceMin
-  let spinExtra = dramatic ? 420 : 0
+  let countEff = count
+  let distMaxEff = distanceMax
+  let distMinEff = distanceMin
+  let spinExtra = dramatic ? 360 : 0
 
   if (slapSurge) {
-    countEff = Math.floor(countEff * 1.65)
-    distMaxEff *= 1.42
-    distMinEff *= 1.22
-    spinExtra += 720
+    distMaxEff *= 1.3
+    distMinEff *= 1.1
+    spinExtra += 540
   }
 
   const rect = anchorEl.getBoundingClientRect()
@@ -123,15 +122,11 @@ export function featherBurst(anchorEl, opts = {}) {
       spinExtra +
       Math.random() * (slapSurge ? 1680 : 1320 + spinExtra * 0.5)
 
-    const moveDuration =
-      (slapSurge ? moveDurationMin * 0.92 : dramatic ? moveDurationMin * 0.88 : moveDurationMin) +
-      Math.random() * (moveDurationMax - moveDurationMin)
+    const moveDuration = moveDurationMin + Math.random() * (moveDurationMax - moveDurationMin)
     const spinDuration = spinDurationMin + Math.random() * (spinDurationMax - spinDurationMin)
 
-    const sizeCap = slapSurge ? sizeMax * 1.35 : dramatic ? sizeMax * 1.12 : sizeMax
-    const sizeFloor = slapSurge ? sizeMin * 1.08 : sizeMin
-    const size = sizeFloor + Math.random() * (sizeCap - sizeFloor)
-    const delay = Math.random() * (slapSurge ? 0.12 : dramatic ? 0.07 : 0.04)
+    const size = sizeMin + Math.random() * (sizeMax - sizeMin)
+    const delay = Math.random() * 0.04
 
     const holder = document.createElement("div")
     holder.style.position = "fixed"
@@ -149,16 +144,7 @@ export function featherBurst(anchorEl, opts = {}) {
     svg.setAttribute("height", "100%")
     svg.style.overflow = "visible"
     if (slapSurge && baseColor) {
-      svg.style.filter = [
-        `drop-shadow(0 0 10px ${baseColor}cc)`,
-        `drop-shadow(0 0 22px ${baseColor}66)`,
-        "drop-shadow(0 0 8px rgba(255,255,255,0.45))",
-        "drop-shadow(0 8px 18px rgba(0,0,0,0.55))",
-      ].join(" ")
-    } else {
-      svg.style.filter = dramatic
-        ? "drop-shadow(0 0 6px rgba(255,255,255,0.35)) drop-shadow(0 3px 8px rgba(0,0,0,0.45))"
-        : "drop-shadow(0 1px 2px rgba(0,0,0,0.3))"
+      svg.style.filter = `drop-shadow(0 0 6px ${baseColor}88)`
     }
     if (Math.random() > 0.5) svg.style.transform = "scaleX(-1)"
 
@@ -173,25 +159,16 @@ export function featherBurst(anchorEl, opts = {}) {
     const endScale = 0.12 + Math.random() * 0.35
 
     gsap.set(holder, {
-      x: 0,
-      y: 0,
-      scale: slapSurge
-        ? 0.04 + Math.random() * 0.12
-        : dramatic
-          ? 0.02 + Math.random() * 0.06
-          : 0.08 + Math.random() * 0.12,
+      x: 0, y: 0,
+      scale: 0.05 + Math.random() * 0.1,
       opacity: 1,
       rotation: rotStart,
     })
 
     gsap.to(holder, {
-      x: endX,
-      y: endY,
-      scale: endScale,
-      opacity: 0,
-      duration: moveDuration,
-      delay,
-      ease: slapSurge ? "power3.out" : dramatic ? "power4.out" : "expo.out",
+      x: endX, y: endY, scale: endScale, opacity: 0,
+      duration: moveDuration, delay,
+      ease: "power3.out",
     })
 
     gsap.to(holder, {

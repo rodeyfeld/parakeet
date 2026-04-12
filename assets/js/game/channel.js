@@ -1,7 +1,18 @@
-import { Socket } from "phoenix"
+import { Socket, LongPoll } from "phoenix"
 
 export function createGameChannel(token, code, callbacks) {
   const socket = new Socket("/game-socket", { params: { token } })
+
+  let wsFailCount = 0
+  socket.onError(() => {
+    wsFailCount++
+    if (wsFailCount >= 2 && socket.transport === WebSocket) {
+      socket.disconnect()
+      socket.transport = LongPoll
+      socket.connect()
+    }
+  })
+
   socket.connect()
 
   const channel = socket.channel(`game:${code}`, {})
