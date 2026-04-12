@@ -3,8 +3,8 @@ defmodule Parakeet.Den.Table do
   use GenServer, restart: :temporary
 
   @grace_period_ms 30_000
-  @max_players 6
-  @bot_pool ~w(Polly Tweety Coco Kiwi Rio Mango Skye Pip Zazu Iago)
+  @max_players 5
+  @bot_pool ~w(Sparkly Snuggly Squeaky Squawky Spooky Sooty Speedy)
 
   @type engine_status :: :waiting | :running | :finished
 
@@ -99,7 +99,13 @@ defmodule Parakeet.Den.Table do
     if total >= @max_players or state.engine_pid != nil do
       {:reply, to_map(state), state}
     else
-      name = next_bot_name(state.bots)
+      taken =
+        state.players
+        |> Enum.reject(fn {_token, p} -> p.timer != nil end)
+        |> Enum.map(fn {_token, p} -> p.name end)
+        |> Kernel.++(state.bots)
+
+      name = next_bot_name(taken)
       new_state = %{state | bots: state.bots ++ [name]}
       {:reply, to_map(new_state), new_state}
     end
@@ -326,9 +332,19 @@ defmodule Parakeet.Den.Table do
     human_names ++ state.bots
   end
 
-  defp next_bot_name(existing_bots) do
-    Enum.find(@bot_pool, fn name -> name not in existing_bots end) ||
-      "Bot #{length(existing_bots) + 1}"
+  defp next_bot_name(taken_names) do
+    available = Enum.reject(@bot_pool, fn name -> name in taken_names end)
+
+    case available do
+      [] ->
+        Stream.iterate(1, &(&1 + 1))
+        |> Enum.find_value(fn n ->
+          if n in taken_names, do: nil, else: n
+        end)
+
+      pool ->
+        Enum.random(pool)
+    end
   end
 
   defp to_map(state) do

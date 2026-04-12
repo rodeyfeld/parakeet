@@ -4,7 +4,7 @@ defmodule Parakeet.Game.Engine do
   use GenServer
 
   @shutdown_delay_ms 120_000
-  @slap_window_ms 1_500
+  @slap_window_ms 2_500
   @type status :: :running | :finished
 
   defstruct [
@@ -26,6 +26,10 @@ defmodule Parakeet.Game.Engine do
   end
 
   def get_state(pid), do: GenServer.call(pid, :get_state)
+
+  @doc "Delay after the last challenge chance before the challenger auto-wins; slaps are still valid during this window."
+  def slap_window_ms, do: @slap_window_ms
+
   def play_turn(pid), do: GenServer.call(pid, :play_turn)
   def play_turn(pid, player_idx), do: GenServer.call(pid, {:play_turn, player_idx})
   def slap(pid, player_idx), do: GenServer.call(pid, {:slap, player_idx})

@@ -6,6 +6,7 @@ defmodule Parakeet.Game.Bot do
 
   @min_play_delay_ms 500
   @max_play_delay_ms 1500
+  @pre_play_glow_ms 320
   @min_slap_delay_ms 750
   @max_slap_delay_ms 1500
   @slap_chance 0.6
@@ -18,6 +19,7 @@ defmodule Parakeet.Game.Bot do
     :name,
     :game,
     :play_timer,
+    :pre_play_glow_timer,
     :slap_timer,
     cooldown_until: nil
   ]
@@ -38,7 +40,8 @@ defmodule Parakeet.Game.Bot do
       player_idx: opts.player_idx,
       topic: opts.topic,
       name: opts.name,
-      game: game
+      game: game,
+      pre_play_glow_timer: nil
     }
 
     state =
@@ -63,8 +66,27 @@ defmodule Parakeet.Game.Bot do
     handle_react(react_to(set_cooldown(state), game))
   end
 
+  def handle_info({:pre_play_glow, player_idx}, state) do
+    state = %{state | pre_play_glow_timer: nil}
+
+    Phoenix.PubSub.broadcast(
+      Parakeet.PubSub,
+      state.topic,
+      {:play_intent, player_idx, true}
+    )
+
+    {:noreply, state}
+  end
+
   def handle_info(:play_card, state) do
     state = %{state | play_timer: nil}
+
+    Phoenix.PubSub.broadcast(
+      Parakeet.PubSub,
+      state.topic,
+      {:play_intent, state.player_idx, false}
+    )
+
     player = Enum.at(state.game.players, state.player_idx)
 
     my_turn? =
@@ -116,7 +138,13 @@ defmodule Parakeet.Game.Bot do
           {["#{state.name} bad slap! Lost 2 cards (#{old_count} → #{new_count} cards)"], nil}
         end
 
-      for msg <- msgs, do: broadcast_update(state, game, msg, event_flash)
+      [first | rest] = msgs
+      broadcast_update(state, game, first, event_flash)
+
+      for msg <- rest do
+        broadcast_update(state, game, msg, nil)
+      end
+
       maybe_notify_game_over(state, game)
 
       state = %{state | game: game}
@@ -168,8 +196,9 @@ defmodule Parakeet.Game.Bot do
 
   defp cancel_timers(state) do
     if state.play_timer, do: Process.cancel_timer(state.play_timer)
+    if state.pre_play_glow_timer, do: Process.cancel_timer(state.pre_play_glow_timer)
     if state.slap_timer, do: Process.cancel_timer(state.slap_timer)
-    %{state | play_timer: nil, slap_timer: nil}
+    %{state | play_timer: nil, pre_play_glow_timer: nil, slap_timer: nil}
   end
 
   defp set_cooldown(state) do
@@ -194,8 +223,23 @@ defmodule Parakeet.Game.Bot do
         if state.cooldown_until, do: max(state.cooldown_until - now, 0), else: 0
 
       delay = cooldown_remaining + Enum.random(@min_play_delay_ms..@max_play_delay_ms)
-      timer = Process.send_after(self(), :play_card, delay)
-      %{state | play_timer: timer}
+
+      {pre_timer, play_timer} =
+        if delay > @pre_play_glow_ms do
+          pre =
+            Process.send_after(
+              self(),
+              {:pre_play_glow, state.player_idx},
+              delay - @pre_play_glow_ms
+            )
+
+          {pre, Process.send_after(self(), :play_card, delay)}
+        else
+          pre = Process.send_after(self(), {:pre_play_glow, state.player_idx}, 0)
+          {pre, Process.send_after(self(), :play_card, delay)}
+        end
+
+      %{state | play_timer: play_timer, pre_play_glow_timer: pre_timer}
     else
       state
     end
