@@ -4,7 +4,7 @@ import { cardIdentityKey } from "./cards"
 export const EVENT_FLASH_DEDUPE_MS = 750
 
 /** After a pile win: play/slap lockout + frozen pile “next round” countdown (ms). */
-export const EVENT_FLASH_MS = 2000
+export const EVENT_FLASH_MS = 2800
 
 /**
  * Single identity for an event flash (pile win toast + SFX + animation).

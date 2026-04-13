@@ -19,11 +19,14 @@ function ensureAudioUnlocked() {
 
 ensureAudioUnlocked()
 
+/** Scales every SFX (0–1). Lower = quieter across the board. */
+const MASTER_VOLUME = 0.7
+
 const SOUND_DEFS = {
   /** Flip / land on pile (freesound flipcard-style) */
   cardPlay: { src: ["/audio/card_flip.mp3"], volume: 0.45, rate: 1.22 },
   /** Cards scooped / pile won — same clip used for shuffle + win UI paths */
-  pileWin: { src: ["/audio/pile_shuffle.mp3"], volume: 0.42 },
+  pileWin: { src: ["/audio/pile_shuffle.mp3"], volume: 0.28 },
   /** Slap / bush-cut style hit */
   slapHit: { src: ["/audio/slap_hit.mp3"], volume: 0.52 },
 }
@@ -40,7 +43,7 @@ function init() {
     if (def.src.length > 0) {
       sounds[name] = new Howl({
         src: def.src,
-        volume: def.volume,
+        volume: def.volume * MASTER_VOLUME,
         rate: def.rate ?? 1,
         html5: true,
         preload: true,

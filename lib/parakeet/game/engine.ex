@@ -6,7 +6,7 @@ defmodule Parakeet.Game.Engine do
   @shutdown_delay_ms 120_000
   @slap_window_ms 1_250
   # Post–pile-win lockout (play + slap). Keep in sync with assets/js/game/flash-key.js EVENT_FLASH_MS.
-  @pile_win_cooldown_ms 2000
+  @pile_win_cooldown_ms 2250
   @type status :: :running | :finished
 
   defstruct [
