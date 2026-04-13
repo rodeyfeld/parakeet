@@ -157,18 +157,23 @@ defmodule ParakeetWeb.GameChannel do
       true ->
         {played_card, _} = CardStack.pop_top(current_player.hand)
         new_game = Engine.play_turn(socket.assigns.engine_pid)
-        msg = "#{current_player.name} plays #{format_card(played_card)}"
 
-        broadcast_game_update(socket.assigns.code, new_game, msg, nil)
-        maybe_notify_game_over(socket, new_game)
+        if new_game == game do
+          {:noreply, socket}
+        else
+          msg = "#{current_player.name} plays #{format_card(played_card)}"
 
-        push(socket, "game_state", %{
-          game: serialize_game(new_game, socket.assigns.player_idx),
-          log: msg,
-          event_flash: nil
-        })
+          broadcast_game_update(socket.assigns.code, new_game, msg, nil)
+          maybe_notify_game_over(socket, new_game)
 
-        {:noreply, assign(socket, :game, new_game)}
+          push(socket, "game_state", %{
+            game: serialize_game(new_game, socket.assigns.player_idx),
+            log: msg,
+            event_flash: nil
+          })
+
+          {:noreply, assign(socket, :game, new_game)}
+        end
     end
   end
 
@@ -184,54 +189,59 @@ defmodule ParakeetWeb.GameChannel do
       old_pile = game.pile
       old_pile_size = CardStack.count(game.pile) + CardStack.count(game.penalty_pile)
       new_game = Engine.slap(socket.assigns.engine_pid, idx)
-      slapped_player = Enum.at(new_game.players, idx)
-      new_count = CardStack.count(slapped_player.hand)
 
-      {msgs, event_flash} =
-        if new_count > old_count do
-          slap_t = new_game.slap_type
-          label = slap_label(slap_t)
+      if new_game == game do
+        {:noreply, socket}
+      else
+        slapped_player = Enum.at(new_game.players, idx)
+        new_count = CardStack.count(slapped_player.hand)
 
-          slap_cards =
-            old_pile
-            |> Slap.pattern_cards(slap_t)
-            |> Enum.map(&Card.to_client_map/1)
+        {msgs, event_flash} =
+          if new_count > old_count do
+            slap_t = new_game.slap_type
+            label = slap_label(slap_t)
 
-          flash = %{
-            type: "slap",
-            label: String.capitalize(label),
-            detail: "#{player.name} wins #{old_pile_size} cards",
-            winner_idx: idx,
-            pile_size: old_pile_size,
-            slap_cards: slap_cards
-          }
+            slap_cards =
+              old_pile
+              |> Slap.pattern_cards(slap_t)
+              |> Enum.map(&Card.to_client_map/1)
 
-          {[
-             "#{player.name} slapped #{label}! Won the pile! (#{old_count} → #{new_count} cards)",
-             "── New round ── #{player.name} starts"
-           ], flash}
-        else
-          {["#{player.name} bad slap! Lost 2 cards (#{old_count} → #{new_count} cards)"], nil}
+            flash = %{
+              type: "slap",
+              label: String.capitalize(label),
+              detail: "#{player.name} wins #{old_pile_size} cards",
+              winner_idx: idx,
+              pile_size: old_pile_size,
+              slap_cards: slap_cards
+            }
+
+            {[
+               "#{player.name} slapped #{label}! Won the pile! (#{old_count} → #{new_count} cards)",
+               "── New round ── #{player.name} starts"
+             ], flash}
+          else
+            {["#{player.name} bad slap! Lost 2 cards (#{old_count} → #{new_count} cards)"], nil}
+          end
+
+        [first | rest] = msgs
+        broadcast_game_update(socket.assigns.code, new_game, first, event_flash)
+
+        for msg <- rest do
+          broadcast_game_update(socket.assigns.code, new_game, msg, nil)
         end
 
-      [first | rest] = msgs
-      broadcast_game_update(socket.assigns.code, new_game, first, event_flash)
+        maybe_notify_game_over(socket, new_game)
 
-      for msg <- rest do
-        broadcast_game_update(socket.assigns.code, new_game, msg, nil)
+        last_msg = List.last(msgs)
+
+        push(socket, "game_state", %{
+          game: serialize_game(new_game, socket.assigns.player_idx),
+          log: last_msg,
+          event_flash: serialize_event_flash(event_flash)
+        })
+
+        {:noreply, assign(socket, :game, new_game)}
       end
-
-      maybe_notify_game_over(socket, new_game)
-
-      last_msg = List.last(msgs)
-
-      push(socket, "game_state", %{
-        game: serialize_game(new_game, socket.assigns.player_idx),
-        log: last_msg,
-        event_flash: serialize_event_flash(event_flash)
-      })
-
-      {:noreply, assign(socket, :game, new_game)}
     end
   end
 
@@ -243,7 +253,8 @@ defmodule ParakeetWeb.GameChannel do
   # -- Serialization --
 
   defp serialize_game(game, player_idx) do
-    pile_cards = Enum.take(game.pile.cards, 4)
+    # Top N cards for the pile fan; client fades/shrinks cards below the first four visually.
+    pile_cards = Enum.take(game.pile.cards, 14)
     pile_size = CardStack.count(game.pile)
 
     pile_transforms =
@@ -285,7 +296,9 @@ defmodule ParakeetWeb.GameChannel do
       winner: game.winner,
       slap_type: game.slap_type,
       player_idx: player_idx,
-      slap_window_ms: Engine.slap_window_ms()
+      slap_window_ms: Engine.slap_window_ms(),
+      pile_win_cooldown_ms: Engine.pile_win_cooldown_ms(),
+      pile_win_cooldown_until: game.pile_win_cooldown_until
     }
   end
 

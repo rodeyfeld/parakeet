@@ -10,7 +10,6 @@ defmodule Parakeet.Game.Bot do
   @min_slap_delay_ms 750
   @max_slap_delay_ms 1500
   @slap_chance 0.6
-  @pile_win_cooldown_ms 1500
 
   defstruct [
     :engine_pid,
@@ -20,8 +19,7 @@ defmodule Parakeet.Game.Bot do
     :game,
     :play_timer,
     :pre_play_glow_timer,
-    :slap_timer,
-    cooldown_until: nil
+    :slap_timer
   ]
 
   def start_link(opts) do
@@ -53,8 +51,7 @@ defmodule Parakeet.Game.Bot do
   end
 
   @impl true
-  def handle_info({:game_update, game, _msg, event_flash}, state) do
-    state = if event_flash, do: set_cooldown(state), else: state
+  def handle_info({:game_update, game, _msg, _event_flash}, state) do
     handle_react(react_to(state, game))
   end
 
@@ -63,7 +60,7 @@ defmodule Parakeet.Game.Bot do
   end
 
   def handle_info({:challenge_resolved, game, _challenge_card, _pile_size}, state) do
-    handle_react(react_to(set_cooldown(state), game))
+    handle_react(react_to(state, game))
   end
 
   def handle_info({:pre_play_glow, player_idx}, state) do
@@ -97,14 +94,19 @@ defmodule Parakeet.Game.Bot do
 
     if my_turn? do
       {played_card, _} = CardStack.pop_top(player.hand)
+      prev = state.game
       game = Engine.play_turn(state.engine_pid, state.player_idx)
 
-      msg = "#{state.name} plays #{format_card(played_card)}"
-      broadcast_update(state, game, msg, nil)
-      maybe_notify_game_over(state, game)
+      if game == prev do
+        {:noreply, maybe_schedule_play(state)}
+      else
+        msg = "#{state.name} plays #{format_card(played_card)}"
+        broadcast_update(state, game, msg, nil)
+        maybe_notify_game_over(state, game)
 
-      %{state | game: game}
-      |> react_to_own_action()
+        %{state | game: game}
+        |> react_to_own_action()
+      end
     else
       {:noreply, state}
     end
@@ -117,52 +119,58 @@ defmodule Parakeet.Game.Bot do
     if state.game.status == :running and player.alive do
       old_count = CardStack.count(player.hand)
       old_pile = state.game.pile
+      prev = state.game
       game = Engine.slap(state.engine_pid, state.player_idx)
-      slapped_player = Enum.at(game.players, state.player_idx)
-      new_count = CardStack.count(slapped_player.hand)
 
-      old_pile_size = CardStack.count(state.game.pile) + CardStack.count(state.game.penalty_pile)
+      if game == prev do
+        {:noreply, maybe_schedule_slap(state)}
+      else
+        slapped_player = Enum.at(game.players, state.player_idx)
+        new_count = CardStack.count(slapped_player.hand)
 
-      {msgs, event_flash} =
-        if new_count > old_count do
-          slap_t = game.slap_type
-          label = slap_label(slap_t)
+        old_pile_size =
+          CardStack.count(state.game.pile) + CardStack.count(state.game.penalty_pile)
 
-          slap_cards =
-            old_pile
-            |> Slap.pattern_cards(slap_t)
-            |> Enum.map(&Card.to_client_map/1)
+        {msgs, event_flash} =
+          if new_count > old_count do
+            slap_t = game.slap_type
+            label = slap_label(slap_t)
 
-          flash = %{
-            type: :slap,
-            label: String.capitalize(label),
-            detail: "#{state.name} wins #{old_pile_size} cards",
-            winner_idx: state.player_idx,
-            pile_size: old_pile_size,
-            slap_cards: slap_cards
-          }
+            slap_cards =
+              old_pile
+              |> Slap.pattern_cards(slap_t)
+              |> Enum.map(&Card.to_client_map/1)
 
-          {[
-             "#{state.name} slapped #{label}! Won the pile! (#{old_count} → #{new_count} cards)",
-             "── New round ── #{state.name} starts"
-           ], flash}
-        else
-          {["#{state.name} bad slap! Lost 2 cards (#{old_count} → #{new_count} cards)"], nil}
+            flash = %{
+              type: :slap,
+              label: String.capitalize(label),
+              detail: "#{state.name} wins #{old_pile_size} cards",
+              winner_idx: state.player_idx,
+              pile_size: old_pile_size,
+              slap_cards: slap_cards
+            }
+
+            {[
+               "#{state.name} slapped #{label}! Won the pile! (#{old_count} → #{new_count} cards)",
+               "── New round ── #{state.name} starts"
+             ], flash}
+          else
+            {["#{state.name} bad slap! Lost 2 cards (#{old_count} → #{new_count} cards)"], nil}
+          end
+
+        [first | rest] = msgs
+        broadcast_update(state, game, first, event_flash)
+
+        for msg <- rest do
+          broadcast_update(state, game, msg, nil)
         end
 
-      [first | rest] = msgs
-      broadcast_update(state, game, first, event_flash)
+        maybe_notify_game_over(state, game)
 
-      for msg <- rest do
-        broadcast_update(state, game, msg, nil)
+        state = %{state | game: game}
+
+        react_to_own_action(state)
       end
-
-      maybe_notify_game_over(state, game)
-
-      state = %{state | game: game}
-      state = if new_count > old_count, do: set_cooldown(state), else: state
-
-      react_to_own_action(state)
     else
       {:noreply, state}
     end
@@ -213,10 +221,6 @@ defmodule Parakeet.Game.Bot do
     %{state | play_timer: nil, pre_play_glow_timer: nil, slap_timer: nil}
   end
 
-  defp set_cooldown(state) do
-    %{state | cooldown_until: System.monotonic_time(:millisecond) + @pile_win_cooldown_ms}
-  end
-
   defp maybe_schedule_play(state) do
     player = Enum.at(state.game.players, state.player_idx)
     pending_challenge? = state.game.challenger_idx != nil and state.game.chances == 0
@@ -229,10 +233,13 @@ defmodule Parakeet.Game.Bot do
         not pending_challenge?
 
     if can_play? and state.play_timer == nil do
-      now = System.monotonic_time(:millisecond)
+      now = System.system_time(:millisecond)
 
       cooldown_remaining =
-        if state.cooldown_until, do: max(state.cooldown_until - now, 0), else: 0
+        case state.game.pile_win_cooldown_until do
+          nil -> 0
+          until -> max(until - now, 0)
+        end
 
       delay = cooldown_remaining + Enum.random(@min_play_delay_ms..@max_play_delay_ms)
 
@@ -259,9 +266,13 @@ defmodule Parakeet.Game.Bot do
 
   defp maybe_schedule_slap(state) do
     player = Enum.at(state.game.players, state.player_idx)
-    now = System.monotonic_time(:millisecond)
+    now = System.system_time(:millisecond)
 
-    in_cooldown? = state.cooldown_until != nil and now < state.cooldown_until
+    in_cooldown? =
+      case state.game.pile_win_cooldown_until do
+        nil -> false
+        until -> now < until
+      end
 
     can_slap? =
       state.game.status == :running and

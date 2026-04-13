@@ -200,7 +200,13 @@ defmodule ParakeetWeb.DenLive do
   defp handle_dead_table(socket) do
     socket
     |> put_flash(:error, "Table closed — it may have timed out")
-    |> assign(pid: nil, table: nil, active_table: nil, active_table_pid: nil, tables: PitBoss.list_tables())
+    |> assign(
+      pid: nil,
+      table: nil,
+      active_table: nil,
+      active_table_pid: nil,
+      tables: PitBoss.list_tables()
+    )
   end
 
   defp check_active_table(socket) do

@@ -3,7 +3,8 @@ import { createRenderer } from "./renderer"
 import { createState, updateState } from "./state"
 import { animate } from "./animations"
 import { audio } from "./audio"
-import { playerFill, formatCard } from "./cards"
+import { flashEventDedupeKey, EVENT_FLASH_DEDUPE_MS } from "./flash-key"
+import { playerFill } from "./cards"
 
 const Game = {
   mounted() {
@@ -21,6 +22,10 @@ const Game = {
     this._slapWindowEndsAt = null
     this._slapWindowIntervalId = null
     this._remotePlayIntentIdx = null
+    this._lastWinSoundKey = null
+    this._lastWinSoundAt = 0
+    this._lastFlashAnimKey = null
+    this._lastFlashAnimAt = 0
 
     this._state = createState(() => {
       if (!this._state.game) return
@@ -102,65 +107,85 @@ const Game = {
 
     if (payload.event_flash) {
       const flash = payload.event_flash
-      const winnerIdx = flash.winner_idx
-      const accent = winnerIdx != null ? playerFill(winnerIdx) : "#a1a1aa"
+      const animKey = flashEventDedupeKey(flash)
+      const now = Date.now()
+      const duplicateFlashAnim =
+        animKey != null &&
+        animKey === this._lastFlashAnimKey &&
+        now - this._lastFlashAnimAt < EVENT_FLASH_DEDUPE_MS
 
-      if (refs.pileContainer && !pileShrank) {
-        animate.slapHit(refs.pileContainer)
-      }
-
-      if (flash.type === "slap") {
-        audio.slapHit()
-      } else {
-        audio.pileWin()
-      }
-
-      const avatarEl = winnerIdx != null
-        ? document.getElementById(`player-avatar-${winnerIdx}`)
-        : null
-
-      const runBurst = () => {
-        const pileZone = this._renderer.getPileZone()
-
-        if (flash.type === "slap" && pileZone) {
-          const overlayText = flash.label || "SLAP"
-          animate.pileOverlayText(pileZone, { text: overlayText, color: accent })
-        } else if (flash.type === "challenge_win" && pileZone) {
-          animate.pileOverlayText(pileZone, {
-            text: "Challenge",
-            color: accent,
-            sub: flash.challenge_card ? `${formatCard(flash.challenge_card)}` : null,
-          })
+      if (!duplicateFlashAnim) {
+        if (animKey != null) {
+          this._lastFlashAnimKey = animKey
+          this._lastFlashAnimAt = now
         }
 
-        if (pileZone) {
-          animate.featherBurst(pileZone, {
-            baseColor: accent,
-            slapSurge: true,
-            count: 50,
-            distanceMin: 50,
-            distanceMax: 240,
-            moveDurationMin: 0.4,
-            moveDurationMax: 0.9,
-            sizeMin: 12,
-            sizeMax: 44,
-          })
+        const winnerIdx = flash.winner_idx
+        const accent = winnerIdx != null ? playerFill(winnerIdx) : "#a1a1aa"
+
+        if (refs.pileContainer && !pileShrank) {
+          animate.slapHit(refs.pileContainer)
         }
-        if (avatarEl) {
-          animate.featherBurst(avatarEl, {
-            baseColor: accent,
-            slapSurge: true,
-            count: 24,
-            distanceMin: 24,
-            distanceMax: 100,
-            moveDurationMin: 0.3,
-            moveDurationMax: 0.7,
-            sizeMin: 8,
-            sizeMax: 28,
-          })
+
+        const soundKey = animKey
+        const duplicateWinSound =
+          soundKey != null &&
+          soundKey === this._lastWinSoundKey &&
+          now - this._lastWinSoundAt < 500
+        if (!duplicateWinSound) {
+          if (soundKey != null) {
+            this._lastWinSoundKey = soundKey
+            this._lastWinSoundAt = now
+          }
+          if (flash.type === "slap") {
+            audio.slapHit()
+          } else {
+            audio.pileWin()
+          }
         }
+
+        const avatarEl = winnerIdx != null
+          ? document.getElementById(`player-avatar-${winnerIdx}`)
+          : null
+
+        const runBurst = () => {
+          const pileZone = this._renderer.getPileZone()
+
+          if (flash.type === "slap" && pileZone) {
+            const overlayText = flash.label || "SLAP"
+            animate.pileOverlayText(pileZone, { text: overlayText, color: accent })
+          }
+          // challenge_win: headline + card live in event-flash strip only (no pile overlay duplicate)
+
+          if (pileZone) {
+            animate.featherBurst(pileZone, {
+              baseColor: accent,
+              slapSurge: true,
+              count: 50,
+              distanceMin: 50,
+              distanceMax: 240,
+              moveDurationMin: 0.4,
+              moveDurationMax: 0.9,
+              sizeMin: 12,
+              sizeMax: 44,
+            })
+          }
+          if (avatarEl) {
+            animate.featherBurst(avatarEl, {
+              baseColor: accent,
+              slapSurge: true,
+              count: 24,
+              distanceMin: 24,
+              distanceMax: 100,
+              moveDurationMin: 0.3,
+              moveDurationMax: 0.7,
+              sizeMin: 8,
+              sizeMax: 28,
+            })
+          }
+        }
+        requestAnimationFrame(() => setTimeout(runBurst, 60))
       }
-      requestAnimationFrame(() => setTimeout(runBurst, 60))
     }
 
     if (slapOutcome) {
@@ -173,7 +198,7 @@ const Game = {
       if (badSlap) {
         const pileZone = this._renderer.getPileZone()
         if (pileZone) {
-          animate.pileOverlayText(pileZone, { text: "BAD SLAP", color: "rgb(248 113 113)" })
+          animate.pileOverlayText(pileZone, { text: "BAD SLAP", color: accent })
           animate.featherBurst(pileZone, {
             baseColor: accent,
             slapSurge: true,

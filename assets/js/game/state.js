@@ -1,3 +1,5 @@
+import { flashEventDedupeKey, EVENT_FLASH_DEDUPE_MS, EVENT_FLASH_MS } from "./flash-key"
+
 export function createState(onChange) {
   return {
     game: null,
@@ -8,10 +10,10 @@ export function createState(onChange) {
     cardDeltas: {},
     frozenPile: null,
     _onChange: onChange || null,
+    _dedupeFlashKey: null,
+    _dedupeFlashAt: null,
   }
 }
-
-const EVENT_FLASH_MS = 3000
 
 export function updateState(state, payload) {
   const oldGame = state.game
@@ -49,7 +51,20 @@ export function updateState(state, payload) {
   }
 
   if (flash) {
-    setEventFlash(state, flash)
+    const k = flashEventDedupeKey(flash)
+    const now = Date.now()
+    const dup =
+      k != null &&
+      k === state._dedupeFlashKey &&
+      state._dedupeFlashAt != null &&
+      now - state._dedupeFlashAt < EVENT_FLASH_DEDUPE_MS
+    if (!dup) {
+      if (k != null) {
+        state._dedupeFlashKey = k
+        state._dedupeFlashAt = now
+      }
+      setEventFlash(state, flash)
+    }
   }
 
   return state

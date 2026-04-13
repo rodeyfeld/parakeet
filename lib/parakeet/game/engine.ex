@@ -4,7 +4,9 @@ defmodule Parakeet.Game.Engine do
   use GenServer
 
   @shutdown_delay_ms 120_000
-  @slap_window_ms 2_500
+  @slap_window_ms 1_250
+  # Post–pile-win lockout (play + slap). Keep in sync with assets/js/game/flash-key.js EVENT_FLASH_MS.
+  @pile_win_cooldown_ms 2000
   @type status :: :running | :finished
 
   defstruct [
@@ -18,6 +20,7 @@ defmodule Parakeet.Game.Engine do
     :winner,
     :slap_type,
     :topic,
+    pile_win_cooldown_until: nil,
     status: :running
   ]
 
@@ -29,6 +32,9 @@ defmodule Parakeet.Game.Engine do
 
   @doc "Delay after the last challenge chance before the challenger auto-wins; slaps are still valid during this window."
   def slap_window_ms, do: @slap_window_ms
+
+  @doc "Unix ms deadline for play/slap after someone wins the pile (matches client event-flash lockout)."
+  def pile_win_cooldown_ms, do: @pile_win_cooldown_ms
 
   def play_turn(pid), do: GenServer.call(pid, :play_turn)
   def play_turn(pid, player_idx), do: GenServer.call(pid, {:play_turn, player_idx})
@@ -45,8 +51,12 @@ defmodule Parakeet.Game.Engine do
   end
 
   def handle_call(:play_turn, _from, state) do
-    new_state = state |> handle_turn() |> advance_until_current_can_act()
-    {:reply, new_state, new_state}
+    if pile_win_cooldown_active?(state) do
+      {:reply, state, state}
+    else
+      new_state = state |> handle_turn() |> advance_until_current_can_act()
+      {:reply, new_state, new_state}
+    end
   end
 
   def handle_call({:play_turn, _player_idx}, _from, %{status: :finished} = state) do
@@ -59,11 +69,16 @@ defmodule Parakeet.Game.Engine do
   end
 
   def handle_call({:play_turn, player_idx}, _from, state) do
-    if player_idx == state.current_player_idx do
-      new_state = state |> handle_turn() |> advance_until_current_can_act()
-      {:reply, new_state, new_state}
-    else
-      {:reply, state, state}
+    cond do
+      pile_win_cooldown_active?(state) ->
+        {:reply, state, state}
+
+      player_idx == state.current_player_idx ->
+        new_state = state |> handle_turn() |> advance_until_current_can_act()
+        {:reply, new_state, new_state}
+
+      true ->
+        {:reply, state, state}
     end
   end
 
@@ -78,7 +93,13 @@ defmodule Parakeet.Game.Engine do
   end
 
   def handle_call({:slap, player_idx}, _from, state) do
-    new_state = handle_slap(state, player_idx)
+    new_state =
+      if pile_win_cooldown_active?(state) do
+        state
+      else
+        handle_slap(state, player_idx)
+      end
+
     {:reply, new_state, new_state}
   end
 
@@ -181,7 +202,10 @@ defmodule Parakeet.Game.Engine do
 
         not player.alive ->
           advance_until_current_can_act(
-            %{state | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx)},
+            %{
+              state
+              | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx)
+            },
             depth + 1
           )
 
@@ -318,6 +342,16 @@ defmodule Parakeet.Game.Engine do
           state
       end
     end
+  end
+
+  defp pile_win_cooldown_active?(state) do
+    u = state.pile_win_cooldown_until
+    u != nil and System.system_time(:millisecond) < u
+  end
+
+  defp apply_pile_win_cooldown(state) do
+    until = System.system_time(:millisecond) + @pile_win_cooldown_ms
+    %{state | pile_win_cooldown_until: until}
   end
 
   defp check_game_over(state) do
@@ -513,7 +547,7 @@ defmodule Parakeet.Game.Engine do
         %Player{player | hand: new_hand}
       end)
 
-    %{
+    state = %{
       state
       | challenger_idx: nil,
         pile: empty_pile,
@@ -523,6 +557,8 @@ defmodule Parakeet.Game.Engine do
         chances: 0,
         challenge_card: nil
     }
+
+    apply_pile_win_cooldown(state)
   end
 
   defp handle_slap_success(state, slapper_idx, slap_type) do
@@ -542,7 +578,7 @@ defmodule Parakeet.Game.Engine do
         %Player{player | hand: new_hand}
       end)
 
-    %{
+    state = %{
       state
       | challenger_idx: nil,
         players: players,
@@ -553,6 +589,8 @@ defmodule Parakeet.Game.Engine do
         challenge_card: nil,
         slap_type: slap_type
     }
+
+    apply_pile_win_cooldown(state)
   end
 
   def handle_slap(state, slapper_idx) do

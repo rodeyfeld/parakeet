@@ -6,26 +6,34 @@ import {
   createCardElement,
   createCardBackElement,
 } from "./cards"
+import { flashEventDedupeKey, EVENT_FLASH_MS } from "./flash-key"
 import { createPlayerAvatarSvg } from "./avatars"
 import { animate } from "./animations"
 
-function eventFlashKey(flash) {
-  if (!flash) return null
-  const slapPart = flash.slap_cards?.map(cardIdentityKey).join("|") ?? ""
-  const ch = flash.challenge_card ? cardIdentityKey(flash.challenge_card) : ""
-  return `${flash.type}|${flash.label}|${flash.detail}|${slapPart}|${ch}`
+/** GSAP delay before flash fades; scales with EVENT_FLASH_MS (was +=2.0 at 3000ms). */
+const EVENT_FLASH_HOLD_SEC = Math.max(0.75, (EVENT_FLASH_MS / 3000) * 2.0)
+
+/** Hex + two-digit alpha (same pattern as card backs). */
+function hexWithAlpha(hex, alpha01) {
+  const a = Math.round(Math.max(0, Math.min(1, alpha01)) * 255)
+    .toString(16)
+    .padStart(2, "0")
+  return `${hex}${a}`
 }
+
+/** Scale for face cards in the event-flash strip (full card is 140×196 CSS px). */
+const EVENT_FLASH_CARD_SCALE = 0.68
 
 /**
  * Readable miniatures for the event flash (slap pattern / challenge card).
- * Uses ~40% scale so pips stay legible; each card sits in a framed cell.
+ * Scaled faces so ranks / suits stay easy to read in the strip.
  */
 function appendEventFlashMiniCards(container, cards) {
   if (!cards || cards.length === 0) return
-  const scale = 0.4
+  const scale = EVENT_FLASH_CARD_SCALE
   const w = Math.round(140 * scale)
   const h = Math.round(196 * scale)
-  const row = el("div", "flex items-end justify-center gap-2 sm:gap-2.5 flex-wrap w-full")
+  const row = el("div", "flex items-end justify-center gap-2.5 sm:gap-3 flex-wrap w-full")
   for (const card of cards) {
     const holder = el(
       "div",
@@ -125,7 +133,7 @@ export function createRenderer(container) {
     const top = game.pile.cards.map(c => cardIdentityKey(c.card)).join(",")
     const challengeGlow =
       game.challenger_idx !== null && game.challenge_card
-        ? cardIdentityKey(game.challenge_card)
+        ? `${cardIdentityKey(game.challenge_card)}@${game.challenger_idx}`
         : "-"
     return `${game.pile.size}:${top}:${challengeGlow}`
   }
@@ -169,7 +177,8 @@ export function createRenderer(container) {
         pileSlot.innerHTML = ""
         const challengeCard =
           !fp && game.challenger_idx !== null ? game.challenge_card : null
-        const { outer, topCardEl, pileEl } = renderPile(activePile, fp, challengeCard)
+        const challengerIdx = !fp && game.challenger_idx !== null ? game.challenger_idx : null
+        const { outer, topCardEl, pileEl } = renderPile(activePile, fp, challengeCard, challengerIdx)
         pileSlot.appendChild(outer)
         currentPileEl = pileEl
         refs.topCard = topCardEl
@@ -179,7 +188,7 @@ export function createRenderer(container) {
         refs.pileContainer = currentPileEl
       }
 
-      const nextFlashKey = eventFlashKey(state.eventFlash)
+      const nextFlashKey = flashEventDedupeKey(state.eventFlash)
       const historySlot = rootEl.querySelector("#history-slot")
       const stack = ensureHistoryInfoStack(historySlot)
 
@@ -223,7 +232,7 @@ export function createRenderer(container) {
                 "<0.05",
               )
 
-              tl.to(inner, { opacity: 0, y: -4, duration: 0.25, ease: "power2.in" }, "+=2.0")
+              tl.to(inner, { opacity: 0, y: -4, duration: 0.25, ease: "power2.in" }, `+=${EVENT_FLASH_HOLD_SEC}`)
               tl.to(pileFlashHost, {
                 height: 0, duration: 0.2, ease: "power2.inOut",
                 onComplete: () => { pileFlashHost.innerHTML = "" },
@@ -324,10 +333,12 @@ export function createRenderer(container) {
     return wrapper
   }
 
-  function renderPile(pile, frozenInfo, challengeCard) {
+  function renderPile(pile, frozenInfo, challengeCard, challengerIdx) {
     const frozen = !!frozenInfo
     const challengeKey =
       challengeCard && !frozen ? cardIdentityKey(challengeCard) : null
+    const challengeGlowColor =
+      challengeKey != null && challengerIdx != null ? playerFill(challengerIdx) : null
     const outer = el("div", "relative w-full h-full flex flex-col items-center justify-center rounded-2xl transition-all duration-150 px-4 py-2")
     outer.id = "pile-drop-zone"
     outer.style.cssText = "touch-action: manipulation;"
@@ -337,42 +348,96 @@ export function createRenderer(container) {
 
     const BASE_FAN_X = 36
     const BASE_FAN_Y = 3
+    /** Tight steps for cards *below* the primary four so they don’t steal fan spread. */
+    const DEEP_FAN_X = 14
+    const DEEP_FAN_Y = 2
+    /** Top this many cards in the fan stay full size; deeper (older) cards shrink and fade. */
+    const PILE_PRIMARY_VISIBLE = 4
+    const CARD_W = 140
+    const CARD_H = 196
 
     if (pile.size > 0) {
       const cards = pile.cards
       const n = cards.length
-      const fanW = 140 + (n - 1) * BASE_FAN_X + 16
-      const fanH = 196 + (n - 1) * BASE_FAN_Y + 16
+      const oldest = [...cards].reverse()
+      const primaryStart = Math.max(0, n - PILE_PRIMARY_VISIBLE)
+
+      /** Lay out so the top four use full fan spacing among themselves; deeper cards stack tightly behind. */
+      const xy = []
+      let x = 8
+      let y = 8
+      for (let i = 0; i < n; i++) {
+        xy.push({ x, y })
+        if (i >= n - 1) break
+        const prev = i
+        const s = oldest[prev].angle
+        const jitterX = (s % 7) - 3
+        const jitterY = ((s * 3) % 9) - 4
+        let dx
+        let dy
+        if (primaryStart === 0) {
+          dx = BASE_FAN_X + jitterX
+          dy = BASE_FAN_Y + jitterY
+        } else if (prev < primaryStart - 1 || prev === primaryStart - 1) {
+          dx = DEEP_FAN_X + jitterX
+          dy = DEEP_FAN_Y + jitterY
+        } else {
+          dx = BASE_FAN_X + jitterX
+          dy = BASE_FAN_Y + jitterY
+        }
+        x += dx
+        y += dy
+      }
+
+      let maxR = 0
+      let maxB = 0
+      for (let i = 0; i < n; i++) {
+        maxR = Math.max(maxR, xy[i].x + CARD_W)
+        maxB = Math.max(maxB, xy[i].y + CARD_H)
+      }
+      const fanW = maxR + 20
+      const fanH = maxB + 20
 
       const fan = el("div", "relative mx-auto transition-opacity duration-500")
       fan.style.cssText = `width: ${fanW}px; height: ${fanH}px;`
       if (frozen) fan.style.opacity = "0.55"
       pileEl = fan
 
-      const oldest = [...cards].reverse()
       oldest.forEach((ct, i) => {
         const isTop = i === oldest.length - 1
         const seed = ct.angle
 
         const rot = isTop ? ((seed % 5) - 2) : ((seed % 11) - 5)
-        const jitterX = (seed % 7) - 3
-        const jitterY = ((seed * 3) % 9) - 4
-        const x = 8 + i * BASE_FAN_X + jitterX
-        const y = 8 + i * BASE_FAN_Y + jitterY
+        const { x: px, y: py } = xy[i]
+
+        // 0 = face-up top card; 1 = one under; … deeper cards fade and shrink.
+        const fromTop = n - 1 - i
+        let scale = 1
+        let opacity = 1
+        if (fromTop >= PILE_PRIMARY_VISIBLE) {
+          const t = fromTop - (PILE_PRIMARY_VISIBLE - 1)
+          scale = Math.max(0.34, 1 - 0.09 * t)
+          opacity = Math.max(0.1, 1 - 0.11 * t)
+        }
 
         const cardWrap = el("div", "absolute")
         cardWrap.style.cssText = [
-          `left: ${x}px; top: ${y}px;`,
+          `left: ${px}px; top: ${py}px;`,
           `z-index: ${i + 1};`,
-          `transform: rotate(${rot}deg);`,
+          `transform: rotate(${rot}deg) scale(${scale});`,
           `transform-origin: center center;`,
+          `opacity: ${opacity};`,
+          `transition: transform 0.45s ease, opacity 0.45s ease;`,
         ].join(" ")
         const cardEl = createCardElement(ct.card)
-        if (challengeKey && cardIdentityKey(ct.card) === challengeKey) {
-          cardEl.style.boxShadow =
-            "0 0 18px 4px rgba(251, 191, 36, 0.42), 0 0 8px 2px rgba(245, 158, 11, 0.28)"
-          cardEl.style.transition = "box-shadow 0.35s ease"
-          cardEl.classList.add("ring-1", "ring-amber-400/35")
+        if (challengeKey && cardIdentityKey(ct.card) === challengeKey && challengeGlowColor) {
+          const c = challengeGlowColor
+          cardEl.style.boxShadow = [
+            `0 0 18px 4px ${hexWithAlpha(c, 0.42)}`,
+            `0 0 8px 2px ${hexWithAlpha(c, 0.28)}`,
+          ].join(", ")
+          cardEl.style.transition = "box-shadow 0.35s ease, border-color 0.35s ease"
+          cardEl.style.borderColor = hexWithAlpha(c, 0.35)
         }
         cardWrap.appendChild(cardEl)
         fan.appendChild(cardWrap)
