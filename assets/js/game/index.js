@@ -153,8 +153,6 @@ const Game = {
           }
           if (flash.type === "slap") {
             audio.slapHit()
-          } else if (flash.type === "challenge_win") {
-            audio.challengeWin()
           } else {
             audio.pileWin()
           }
@@ -216,6 +214,7 @@ const Game = {
         slapPlayerIdx !== undefined ? playerFill(Number(slapPlayerIdx)) : "#a1a1aa"
 
       if (badSlap) {
+        audio.badSlap()
         const pileZone = this._renderer.getPileZone()
         if (pileZone) {
           animate.pileOverlayText(pileZone, { text: "BAD SLAP", color: accent })

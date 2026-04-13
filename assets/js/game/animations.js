@@ -21,6 +21,57 @@ function createOrigamiBirdSvg(fill) {
   return svg
 }
 
+/** Faint contrail behind the bird (local −x = behind when wrap is rotated to face). */
+function trailGradientFromFill(fill) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(fill || "").trim())
+  if (!m) {
+    return "linear-gradient(90deg, transparent, rgba(255,255,255,0.04), rgba(200,200,210,0.1))"
+  }
+  const h = m[1]
+  const r = Number.parseInt(h.slice(0, 2), 16)
+  const g = Number.parseInt(h.slice(2, 4), 16)
+  const b = Number.parseInt(h.slice(4, 6), 16)
+  return `linear-gradient(90deg, rgba(${r},${g},${b},0) 0%, rgba(${r},${g},${b},0.05) 35%, rgba(${r},${g},${b},0.12) 100%)`
+}
+
+function createBirdWrap(px, color, zBase) {
+  const wrap = document.createElement("div")
+  wrap.style.cssText =
+    `position:absolute;width:${px}px;height:${px}px;will-change:transform,opacity;z-index:${zBase}`
+
+  const trail = document.createElement("div")
+  trail.setAttribute("aria-hidden", "true")
+  const tw = Math.round(px * 1.35)
+  trail.style.cssText = [
+    "position:absolute",
+    "left:50%",
+    "top:50%",
+    `width:${tw}px`,
+    "height:1.5px",
+    "margin-top:-0.75px",
+    "transform:translate(-100%,0)",
+    "transform-origin:right center",
+    "z-index:0",
+    `background:${trailGradientFromFill(color)}`,
+    "opacity:0.42",
+    "pointer-events:none",
+  ].join(";")
+
+  const svg = createOrigamiBirdSvg(color)
+  svg.style.width = `${px}px`
+  svg.style.height = `${px}px`
+  svg.style.position = "relative"
+  svg.style.zIndex = "1"
+  svg.style.filter =
+    px >= 52
+      ? "drop-shadow(0 3px 12px rgba(0,0,0,0.35))"
+      : "drop-shadow(0 2px 6px rgba(0,0,0,0.26))"
+
+  wrap.appendChild(trail)
+  wrap.appendChild(svg)
+  return wrap
+}
+
 export const animate = {
   featherBurst,
 
@@ -38,18 +89,10 @@ export const animate = {
     overlay.style.cssText =
       `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;pointer-events:none;z-index:60;overflow:visible`
 
-    const wrap = document.createElement("div")
-    const W = 76
-    wrap.style.cssText =
-      `position:absolute;width:${W}px;height:${W}px;will-change:transform,opacity`
-
-    const svg = createOrigamiBirdSvg(color)
-    svg.style.width = `${W}px`
-    svg.style.height = `${W}px`
-    svg.style.filter = "drop-shadow(0 3px 12px rgba(0,0,0,0.35))"
-    wrap.appendChild(svg)
-    overlay.appendChild(wrap)
-    document.body.appendChild(overlay)
+    const FLIGHT_EASE = "sine.inOut"
+    /** Nearly identical speeds (tiny jitter so it doesn’t look robotic) */
+    const D_BASE = 1.0
+    const durJitter = [0, 0.008, -0.008, 0.005, -0.005, 0.003, -0.003]
 
     const x0 = rect.width * 0.06
     const y0 = rect.height * 0.82
@@ -58,30 +101,83 @@ export const animate = {
 
     const vx = x1 - x0
     const vy = y1 - y0
+    const len = Math.hypot(vx, vy) || 1
+    const ux = vx / len
+    const uy = vy / len
+    const px = -vy / len
+    const py = vx / len
+
+    const baseSide = Math.min(rect.width, rect.height) * 0.052
+    const ahead = len * 0.052
+    const wingTaper = 0.9
+
+    const at = (xb, yb, along, side) => ({
+      x: xb + ux * along + px * side,
+      y: yb + uy * along + py * side,
+    })
+
+    // V: lead at tip; three staggered pairs behind (along −flight, ±perpendicular)
+    const rows = [
+      { w: 68, z: 20, a0: ahead, a1: 0, s0: 0, s1: 0, op: 1, sc0: 0.9, sc1: 1 },
+      { w: 40, z: 15, a0: -len * 0.07, a1: -len * 0.038, s0: baseSide, s1: baseSide * wingTaper, op: 0.9, sc0: 0.84, sc1: 0.95 },
+      { w: 40, z: 15, a0: -len * 0.07, a1: -len * 0.038, s0: -baseSide, s1: -baseSide * wingTaper, op: 0.9, sc0: 0.84, sc1: 0.95 },
+      { w: 34, z: 13, a0: -len * 0.125, a1: -len * 0.072, s0: baseSide * 1.65, s1: baseSide * 1.55 * wingTaper, op: 0.85, sc0: 0.8, sc1: 0.92 },
+      { w: 34, z: 13, a0: -len * 0.125, a1: -len * 0.072, s0: -baseSide * 1.65, s1: -baseSide * 1.55 * wingTaper, op: 0.85, sc0: 0.8, sc1: 0.92 },
+      { w: 28, z: 11, a0: -len * 0.18, a1: -len * 0.105, s0: baseSide * 2.35, s1: baseSide * 2.2 * wingTaper, op: 0.8, sc0: 0.76, sc1: 0.88 },
+      { w: 28, z: 11, a0: -len * 0.18, a1: -len * 0.105, s0: -baseSide * 2.35, s1: -baseSide * 2.2 * wingTaper, op: 0.8, sc0: 0.76, sc1: 0.88 },
+    ]
+
     // Screen y increases downward — use -vy so “up-right” matches atan2 in visual space
     const flightDeg = (Math.atan2(-vy, vx) * 180) / Math.PI
     const rotation =
       flightDeg + ORIGAMI_BIRD_ROTATION_OFFSET_DEG + ORIGAMI_BIRD_ROTATION_EXTRA_DEG
 
-    gsap.set(wrap, {
-      left: x0,
-      top: y0,
-      x: -W / 2,
-      y: -W / 2,
-      rotation,
-      opacity: 1,
-      scale: 0.92,
-    })
+    const wraps = []
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      const wrap = createBirdWrap(r.w, color, r.z)
+      const p0 = at(x0, y0, r.a0, r.s0)
+      const p1 = at(x1, y1, r.a1, r.s1)
+      gsap.set(wrap, {
+        left: p0.x,
+        top: p0.y,
+        x: -r.w / 2,
+        y: -r.w / 2,
+        rotation,
+        opacity: r.op,
+        scale: r.sc0,
+      })
+      overlay.appendChild(wrap)
+      wraps.push({
+        wrap,
+        p1,
+        sc1: r.sc1,
+        duration: D_BASE + (durJitter[i] ?? 0),
+      })
+    }
+    document.body.appendChild(overlay)
+
+    const maxFlight = Math.max(...wraps.map((w) => w.duration))
 
     const tl = gsap.timeline({ onComplete: () => overlay.remove() })
-    tl.to(wrap, {
-      left: x1,
-      top: y1,
-      scale: 1,
-      duration: .7,
-      ease: "sine.inOut",
-    })
-    tl.to(wrap, { opacity: 0, duration: 0.22, ease: "sine.out" }, "-=0.14")
+    for (const item of wraps) {
+      tl.to(
+        item.wrap,
+        {
+          left: item.p1.x,
+          top: item.p1.y,
+          scale: item.sc1,
+          duration: item.duration,
+          ease: FLIGHT_EASE,
+        },
+        0,
+      )
+    }
+    tl.to(
+      wraps.map((w) => w.wrap),
+      { opacity: 0, duration: 0.22, ease: "sine.out" },
+      maxFlight - 0.14,
+    )
 
     return tl
   },
