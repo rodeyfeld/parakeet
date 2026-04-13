@@ -45,7 +45,7 @@ defmodule Parakeet.Game.Engine do
   end
 
   def handle_call(:play_turn, _from, state) do
-    new_state = handle_turn(state)
+    new_state = state |> handle_turn() |> advance_until_current_can_act()
     {:reply, new_state, new_state}
   end
 
@@ -60,7 +60,7 @@ defmodule Parakeet.Game.Engine do
 
   def handle_call({:play_turn, player_idx}, _from, state) do
     if player_idx == state.current_player_idx do
-      new_state = handle_turn(state)
+      new_state = state |> handle_turn() |> advance_until_current_can_act()
       {:reply, new_state, new_state}
     else
       {:reply, state, state}
@@ -153,6 +153,44 @@ defmodule Parakeet.Game.Engine do
 
       true ->
         next_idx
+    end
+  end
+
+  # After a play, `current_player_idx` may point at someone with 0 cards who still
+  # needs handle_empty_hand / turn pass — but no client will send another :play_turn
+  # until "their" seat acts. Chain empty-hand resolution until someone can hold a turn
+  # or the game ends. Skip during the slap window (chances == 0, challenge active).
+  defp advance_until_current_can_act(state, depth \\ 0)
+
+  defp advance_until_current_can_act(state, depth) when depth > 16 do
+    Logger.warning("advance_until_current_can_act: depth limit hit")
+    state
+  end
+
+  defp advance_until_current_can_act(%{status: :finished} = state, _depth), do: state
+
+  defp advance_until_current_can_act(state, depth) do
+    if state.challenger_idx != nil and state.chances == 0 do
+      state
+    else
+      player = Enum.at(state.players, state.current_player_idx)
+
+      cond do
+        player == nil ->
+          state
+
+        not player.alive ->
+          advance_until_current_can_act(
+            %{state | current_player_idx: get_next_alive_player_idx(state, state.current_player_idx)},
+            depth + 1
+          )
+
+        CardStack.count(player.hand) > 0 ->
+          state
+
+        true ->
+          advance_until_current_can_act(handle_turn(state), depth + 1)
+      end
     end
   end
 

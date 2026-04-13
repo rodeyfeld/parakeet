@@ -96,7 +96,7 @@ export function createRenderer(container) {
     rootEl.appendChild(createHeader())
     rootEl.appendChild(el("div", "flex justify-center gap-2 shrink-0 px-1", "", "avatars"))
 
-    const body = el("div", "flex-1 min-h-0 flex flex-col pb-32 sm:pb-28", "", "game-body")
+    const body = el("div", "flex-1 min-h-0 flex flex-col pb-4", "", "game-body")
     const gameArea = el("div", "flex-1 min-h-0 flex flex-col items-center gap-2", "", "game-area")
     gameArea.appendChild(
       el("div", "shrink-0 w-full max-w-2xl mx-auto", "", "history-slot"),
@@ -117,11 +117,6 @@ export function createRenderer(container) {
     body.appendChild(gameArea)
 
     rootEl.appendChild(body)
-
-    const drawers = el("div", "absolute bottom-0 inset-x-0 z-30 flex flex-col gap-1.5 px-1 pb-2", "", "game-drawers")
-    drawers.appendChild(createGameLog())
-    drawers.appendChild(createGameRules())
-    rootEl.appendChild(drawers)
 
     container.appendChild(rootEl)
   }
@@ -255,7 +250,6 @@ export function createRenderer(container) {
       if (countEl) refs.countEls[player.idx] = countEl
     }
 
-    renderLog(state.log)
     return refs
   }
 
@@ -670,97 +664,6 @@ export function createRenderer(container) {
     }
 
     return inner
-  }
-
-  function createGameLog() {
-    const details = document.createElement("details")
-    details.id = "game-log-drawer"
-    details.className = "group rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur-xl shadow-lg"
-    details.innerHTML = `
-      <summary class="cursor-pointer select-none px-4 py-2.5 flex items-center justify-between text-sm font-semibold text-zinc-300 hover:text-white transition-colors">
-        <span class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-zinc-500 group-open:text-emerald-400 transition-colors">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-          </svg>
-          Game Log
-        </span>
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-zinc-500 group-open:rotate-180 transition-transform duration-200">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-        </svg>
-      </summary>
-      <div class="px-4 pb-3 border-t border-zinc-800 max-h-36 overflow-y-auto">
-        <div id="game-log-entries" class="space-y-1 text-sm font-mono pt-2">
-          <div class="text-zinc-500">No actions yet</div>
-        </div>
-      </div>
-    `
-    return details
-  }
-
-  function renderLog(log) {
-    const logEntries = rootEl.querySelector("#game-log-entries")
-    if (!logEntries) return
-
-    logEntries.innerHTML = ""
-    if (log.length === 0) {
-      logEntries.innerHTML = `<div class="text-zinc-500">No actions yet</div>`
-      return
-    }
-
-    const reversed = [...log].reverse()
-    reversed.forEach((msg, i) => {
-      const row = el("div", [
-        "text-zinc-400",
-        i === 0 ? "text-zinc-200 font-semibold" : "",
-      ].join(" "), msg)
-      row.id = `log-${i}`
-      logEntries.appendChild(row)
-    })
-  }
-
-  function createGameRules() {
-    const details = document.createElement("details")
-    details.className = "group rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur-xl shadow-lg"
-    details.innerHTML = `
-      <summary class="cursor-pointer select-none px-4 py-2.5 flex items-center justify-between text-sm font-semibold text-zinc-300 hover:text-white transition-colors">
-        <span class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-zinc-500 group-open:text-emerald-400 transition-colors">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-          </svg>
-          How to Play
-        </span>
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-zinc-500 group-open:rotate-180 transition-transform duration-200">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-        </svg>
-      </summary>
-      <div class="px-4 pb-3 pt-1 text-sm text-zinc-400 space-y-4 border-t border-zinc-800 max-h-44 overflow-y-auto">
-        <p>The deck is split evenly between all players. <strong class="text-zinc-300">Drag</strong> a card from your deck onto the pile to play. <strong class="text-zinc-300">Double-tap</strong> the pile to slap. Win by collecting all the cards.</p>
-        <div>
-          <h4 class="font-semibold text-zinc-200 mb-1">Slaps</h4>
-          <p class="mb-2">When the pile matches any of these patterns, the first player to <strong class="text-zinc-300">double-tap</strong> the pile takes it:</p>
-          <ul class="space-y-1 pl-4 list-disc marker:text-zinc-600">
-            <li>Two identical cards in a row</li>
-            <li>A "sandwich" &mdash; two matching cards separated by one card</li>
-            <li>Three cards in numeric order</li>
-            <li>Queen followed by King</li>
-            <li>Two numbered cards adding up to ten</li>
-          </ul>
-          <p class="mt-2 text-zinc-500">Bad slap? You lose 2 cards from your hand to the bottom of the pile.</p>
-        </div>
-        <div>
-          <h4 class="font-semibold text-zinc-200 mb-1">Challenges</h4>
-          <p class="mb-2">When a face card is played, the next player must beat it by playing their own face card within a limited number of tries. If they fail, the challenger takes the pile.</p>
-          <ul class="space-y-1 pl-4 list-disc marker:text-zinc-600">
-            <li><span class="font-mono text-zinc-300">Jack</span> &mdash; 1 chance</li>
-            <li><span class="font-mono text-zinc-300">Queen</span> &mdash; 2 chances</li>
-            <li><span class="font-mono text-zinc-300">King</span> &mdash; 3 chances</li>
-            <li><span class="font-mono text-zinc-300">Ace</span> &mdash; 4 chances</li>
-          </ul>
-          <p class="mt-2 text-zinc-500">A slap can be performed at any time during a challenge.</p>
-        </div>
-      </div>
-    `
-    return details
   }
 
   function getLeaveButton() {

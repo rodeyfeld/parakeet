@@ -174,6 +174,34 @@ const Game = {
         const pileZone = this._renderer.getPileZone()
         if (pileZone) {
           animate.pileOverlayText(pileZone, { text: "BAD SLAP", color: "rgb(248 113 113)" })
+          animate.featherBurst(pileZone, {
+            baseColor: accent,
+            slapSurge: true,
+            count: 50,
+            distanceMin: 50,
+            distanceMax: 240,
+            moveDurationMin: 0.4,
+            moveDurationMax: 0.9,
+            sizeMin: 12,
+            sizeMax: 44,
+          })
+        }
+        const badAvatar =
+          slapPlayerIdx !== undefined
+            ? document.getElementById(`player-avatar-${slapPlayerIdx}`)
+            : null
+        if (badAvatar) {
+          animate.featherBurst(badAvatar, {
+            baseColor: accent,
+            slapSurge: true,
+            count: 24,
+            distanceMin: 24,
+            distanceMax: 100,
+            moveDurationMin: 0.3,
+            moveDurationMax: 0.7,
+            sizeMin: 8,
+            sizeMax: 28,
+          })
         }
       }
 
