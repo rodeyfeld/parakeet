@@ -23,7 +23,7 @@ const SOUND_DEFS = {
   /** Flip / land on pile (freesound flipcard-style) */
   cardPlay: { src: ["/audio/card_flip.mp3"], volume: 0.45, rate: 1.22 },
   /** Cards scooped / pile won — same clip used for shuffle + win UI paths */
-  pileWin: { src: ["/audio/pile_shuffle.mp3"], volume: 0.38 },
+  pileWin: { src: ["/audio/pile_shuffle.mp3"], volume: 0.42 },
   /** Slap / bush-cut style hit */
   slapHit: { src: ["/audio/slap_hit.mp3"], volume: 0.52 },
 }
