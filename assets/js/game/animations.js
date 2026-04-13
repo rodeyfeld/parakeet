@@ -1,5 +1,6 @@
 import gsap from "gsap"
 import { featherBurst } from "./feathers"
+import { MECHANIC } from "./theme"
 
 export const animate = {
   featherBurst,
@@ -74,16 +75,16 @@ export const animate = {
     const pos = delta > 0
     const text = delta > 0 ? `+${delta}` : `${delta}`
     el.textContent = text
-    el.className = [
-      "text-[11px] font-mono font-bold leading-tight min-h-[14px] text-center pointer-events-none",
-      pos ? "text-emerald-400" : "text-red-400",
-    ].join(" ")
+    el.className =
+      "text-[11px] font-mono font-bold leading-tight min-h-[14px] text-center pointer-events-none"
+    el.style.color = pos ? MECHANIC.handDeltaGain : MECHANIC.handDeltaLoss
 
     const tl = gsap.timeline({
       onComplete: () => {
         el.textContent = ""
+        el.style.color = ""
         el.className =
-          "text-[11px] font-mono font-bold leading-tight min-h-[14px] text-center opacity-0 pointer-events-none"
+          "text-[11px] font-mono font-bold leading-tight min-h-[14px] text-center opacity-0 pointer-events-none text-zinc-800 dark:text-zinc-200"
       },
     })
     tl.fromTo(el, { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.22, ease: "power2.out" })

@@ -5,16 +5,30 @@ import { animate } from "./animations"
 import { audio } from "./audio"
 import { flashEventDedupeKey, EVENT_FLASH_DEDUPE_MS } from "./flash-key"
 import { playerFill } from "./cards"
+import { MECHANIC } from "./theme"
+import { cycleThemePreference, themeControlPresentation } from "../theme-client"
 
 const Game = {
   mounted() {
     const code = this.el.dataset.code
     const token = this.el.dataset.token
 
+    this._syncGameThemeButton = () => {
+      const btn = this._renderer?.getThemeButton?.()
+      if (!btn) return
+      const { label, glyph } = themeControlPresentation()
+      btn.textContent = glyph
+      btn.title = label
+      btn.setAttribute("aria-label", label)
+    }
+    this._onParakeetTheme = () => this._syncGameThemeButton()
+    window.addEventListener("parakeet-theme-applied", this._onParakeetTheme)
+
     this._lockViewport()
 
     this._renderer = createRenderer(this.el)
     this._renderer.mount()
+    this._syncGameThemeButton()
     this._channel = null
     this._interactionCleanup = []
     this._isDragging = false
@@ -61,7 +75,7 @@ const Game = {
         console.error("Failed to join game channel:", resp)
         this.el.innerHTML = `
           <div class="flex items-center justify-center min-h-[60vh]">
-            <span class="text-red-400">Failed to connect to game.</span>
+            <span class="text-red-600 dark:text-red-400">Failed to connect to game.</span>
           </div>
         `
       },
@@ -328,6 +342,12 @@ const Game = {
       })
     }
 
+    const themeBtn = this._renderer.getThemeButton()
+    if (themeBtn && !themeBtn._bound) {
+      themeBtn._bound = true
+      themeBtn.addEventListener("click", () => cycleThemePreference())
+    }
+
     if (backBtn && !backBtn._bound) {
       backBtn._bound = true
       backBtn.addEventListener("click", () => {
@@ -458,10 +478,11 @@ const Game = {
               pileFlipSoundPlayed = true
             }
             if (over) {
-              pz.style.outline = "2px solid rgba(52, 211, 153, 0.55)"
+              pz.style.outline = `2px solid ${MECHANIC.dragPileOutline}`
               pz.style.outlineOffset = "6px"
               dragGhost.style.transform = "translateZ(0) scale(1.07)"
-              dragGhost.style.filter = "drop-shadow(0 18px 36px rgba(16, 185, 129, 0.22)) drop-shadow(0 12px 24px rgba(0,0,0,0.45))"
+              dragGhost.style.filter =
+                "drop-shadow(0 18px 36px rgba(249, 115, 22, 0.28)) drop-shadow(0 12px 24px rgba(0,0,0,0.45))"
             } else {
               pz.style.outline = ""
               pz.style.outlineOffset = ""
@@ -564,8 +585,12 @@ const Game = {
     const main = this.el.closest("main")
     if (main) {
       this._origMainClass = main.className
-      main.className = ""
-      main.style.cssText = "height:100dvh;overflow:hidden;padding:0.5rem 0.75rem;touch-action:manipulation;overscroll-behavior:none;"
+      main.className = [
+        "min-h-[100dvh] h-[100dvh] overflow-hidden px-3 py-2 sm:px-3",
+        "bg-zinc-100 text-zinc-900 dark:bg-[rgb(8_13_10)] dark:text-zinc-100",
+        "touch-manipulation overscroll-none",
+      ].join(" ")
+      main.style.cssText = ""
       const wrap = main.firstElementChild
       if (wrap) {
         this._origWrapClass = wrap.className
@@ -599,6 +624,7 @@ const Game = {
   },
 
   destroyed() {
+    window.removeEventListener("parakeet-theme-applied", this._onParakeetTheme)
     for (const fn of this._interactionCleanup) fn()
     this._interactionCleanup = []
     const ghost = document.getElementById("drag-ghost")

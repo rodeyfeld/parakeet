@@ -6,6 +6,7 @@ import {
   createCardElement,
   createCardBackElement,
 } from "./cards"
+import { MECHANIC } from "./theme"
 import { flashEventDedupeKey, EVENT_FLASH_MS } from "./flash-key"
 import { createPlayerAvatarSvg } from "./avatars"
 import { animate } from "./animations"
@@ -37,7 +38,7 @@ function appendEventFlashMiniCards(container, cards) {
   for (const card of cards) {
     const holder = el(
       "div",
-      "relative shrink-0 overflow-hidden rounded-lg bg-zinc-900/40 shadow-[0_6px_16px_rgba(0,0,0,0.45)] ring-1 ring-white/15",
+      "relative shrink-0 overflow-hidden rounded-lg bg-zinc-200/90 shadow-[0_6px_16px_rgba(0,0,0,0.12)] ring-1 ring-zinc-300/70 dark:bg-zinc-800/55 dark:shadow-[0_6px_16px_rgba(0,0,0,0.28)] dark:ring-zinc-500/25",
     )
     holder.style.width = `${w}px`
     holder.style.height = `${h}px`
@@ -53,13 +54,9 @@ function appendEventFlashMiniCards(container, cards) {
   container.appendChild(row)
 }
 
-const TURN_GLOW_GREEN = "#34d399"
-/** Amber: current player is about to play (dragging card, or server play_intent — e.g. bot wind-up). */
-const ABOUT_TO_PLAY_GLOW = "#eab308"
-
 /**
- * Green = their turn, not yet committing a play.
- * Amber = about to play (local deck drag, remote intent from another human, or bot pre-play glow).
+ * Turn ring: mechanic mint = your turn (idle); mechanic orange = about to play / play_intent.
+ * (Player seat colors are only on deck backs + avatar art — never used for this ring.)
  */
 function turnGlowState(player, game, aboutToPlayPlayerIdx) {
   const idx = player.idx
@@ -69,7 +66,7 @@ function turnGlowState(player, game, aboutToPlayPlayerIdx) {
   const aboutToPlay = aboutToPlayPlayerIdx != null && aboutToPlayPlayerIdx === idx
   return {
     glowing: true,
-    color: aboutToPlay ? ABOUT_TO_PLAY_GLOW : TURN_GLOW_GREEN,
+    color: aboutToPlay ? MECHANIC.playIntent : MECHANIC.turnAwaitingPlay,
   }
 }
 
@@ -77,7 +74,9 @@ function styleAvatarCircle(circle, player, glow) {
   const dead = !player.alive
   circle.className = [
     "w-11 h-11 rounded-full flex items-center justify-center border-2 transition-all",
-    glow.glowing ? "animate-[glow-pulse_2s_ease-in-out_infinite] bg-zinc-800/80" : "border-transparent bg-zinc-800/40",
+    glow.glowing
+      ? "animate-[glow-pulse_2s_ease-in-out_infinite] bg-zinc-200/90 dark:bg-zinc-700/85"
+      : "border-transparent bg-zinc-200/70 dark:bg-zinc-700/45",
     dead ? "opacity-30 grayscale" : "",
   ].join(" ")
   if (glow.glowing && glow.color) {
@@ -96,10 +95,14 @@ export function createRenderer(container) {
   let currentPileEl = null
   let prevFlashKey = undefined
   let flashTimeline = null
+  let deckSlideTimeline = null
 
   function mount() {
     container.innerHTML = ""
-    rootEl = el("div", "relative h-full flex flex-col overflow-hidden")
+    rootEl = el(
+      "div",
+      "relative h-full flex flex-col overflow-hidden min-h-0 text-zinc-900 dark:text-zinc-50",
+    )
 
     rootEl.appendChild(createHeader())
     rootEl.appendChild(el("div", "flex justify-center gap-2 shrink-0 px-1", "", "avatars"))
@@ -205,6 +208,8 @@ export function createRenderer(container) {
 
         if (pileFlashHost) {
           pileFlashHost.innerHTML = ""
+          const controlsSlot = rootEl.querySelector("#controls-slot")
+
           if (nextFlashKey) {
             const flashEl = renderEventFlashInner(state.eventFlash, game)
             pileFlashHost.appendChild(flashEl)
@@ -217,6 +222,11 @@ export function createRenderer(container) {
               const naturalH = pileFlashHost.offsetHeight
               pileFlashHost.style.height = "0px"
 
+              const OPEN = 0.22
+              const HOLD = EVENT_FLASH_HOLD_SEC
+              const CLOSE = 0.22
+
+              // Flash host expand / content fade
               const tl = gsap.timeline({
                 onComplete: () => {
                   flashTimeline = null
@@ -224,27 +234,36 @@ export function createRenderer(container) {
                   pileFlashHost.style.height = "0px"
                 },
               })
-
-              tl.to(pileFlashHost, { height: naturalH, duration: 0.2, ease: "power2.out" })
+              tl.to(pileFlashHost, { height: naturalH, duration: OPEN, ease: "power2.out" })
               tl.fromTo(inner,
                 { opacity: 0, y: -4 },
-                { opacity: 1, y: 0, duration: 0.15, ease: "power2.out" },
-                "<0.05",
+                { opacity: 1, y: 0, duration: OPEN * 0.7, ease: "power2.out" },
+                "<0.04",
               )
-
-              tl.to(inner, { opacity: 0, y: -4, duration: 0.25, ease: "power2.in" }, `+=${EVENT_FLASH_HOLD_SEC}`)
+              tl.to(inner, { opacity: 0, y: -4, duration: CLOSE, ease: "power2.in" }, `+=${HOLD}`)
               tl.to(pileFlashHost, {
-                height: 0, duration: 0.2, ease: "power2.inOut",
+                height: 0, duration: CLOSE, ease: "power2.inOut",
                 onComplete: () => { pileFlashHost.innerHTML = "" },
-              }, "-=0.1")
-
+              }, "-=0.08")
               flashTimeline = tl
+
+              // Deck slide off-screen on open, back in on close
+              if (deckSlideTimeline) { deckSlideTimeline.kill(); deckSlideTimeline = null }
+              if (controlsSlot) {
+                const deckH = controlsSlot.offsetHeight + 16
+                const dtl = gsap.timeline({ onComplete: () => { deckSlideTimeline = null } })
+                dtl.to(controlsSlot, { y: deckH, opacity: 0, duration: OPEN, ease: "power2.in" })
+                dtl.to(controlsSlot, { y: 0, opacity: 1, duration: CLOSE, ease: "power2.out" }, `+=${HOLD - 0.05}`)
+                deckSlideTimeline = dtl
+              }
             })
           } else {
             gsap.to(pileFlashHost, {
               height: 0, duration: 0.2, ease: "power2.inOut",
               onComplete: () => { pileFlashHost.innerHTML = "" },
             })
+            if (deckSlideTimeline) { deckSlideTimeline.kill(); deckSlideTimeline = null }
+            if (controlsSlot) gsap.to(controlsSlot, { y: 0, opacity: 1, duration: 0.2, ease: "power2.out" })
           }
         }
       }
@@ -263,14 +282,33 @@ export function createRenderer(container) {
   }
 
   function createHeader() {
-    const header = el("div", "flex items-center justify-between shrink-0")
-    header.innerHTML = `<h1 class="text-2xl font-bold tracking-tight">Parakeet</h1>`
-    const leaveBtn = el("button",
-      "rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:border-zinc-500 transition-all",
-      "Leave"
+    const header = el("div", "flex items-center justify-between shrink-0 gap-2")
+    const title = el("h1", "text-2xl font-bold tracking-tight text-zinc-900 dark:text-white")
+    title.textContent = "Parakeet"
+    const actions = el("div", "flex items-center gap-2")
+    const themeBtn = el("button")
+    themeBtn.type = "button"
+    themeBtn.id = "game-theme-btn"
+    themeBtn.className = [
+      "rounded-lg border border-zinc-300 p-2 text-lg leading-none text-zinc-800",
+      "hover:bg-zinc-200/90 transition-colors min-w-[2.25rem] min-h-[2.25rem] flex items-center justify-center",
+      "dark:border-zinc-500 dark:text-zinc-100 dark:hover:bg-zinc-700/75",
+    ].join(" ")
+    themeBtn.setAttribute("aria-label", "Color theme")
+    const leaveBtn = el(
+      "button",
+      [
+        "rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700",
+        "hover:text-zinc-900 hover:border-zinc-500 hover:bg-zinc-200/80 transition-all",
+        "dark:border-zinc-500 dark:text-zinc-200 dark:hover:text-white dark:hover:bg-zinc-700/55",
+      ].join(" "),
+      "Leave",
     )
     leaveBtn.id = "leave-game-btn"
-    header.appendChild(leaveBtn)
+    actions.appendChild(themeBtn)
+    actions.appendChild(leaveBtn)
+    header.appendChild(title)
+    header.appendChild(actions)
     return header
   }
 
@@ -304,15 +342,20 @@ export function createRenderer(container) {
     const info = el("div", "text-center w-full")
     const nameEl = el("div", [
       "text-xs font-semibold truncate w-full",
-      active ? "text-white" : "text-zinc-400",
-      !player.alive ? "line-through text-zinc-600" : "",
+      active ? "text-zinc-900 dark:text-white" : "text-zinc-600 dark:text-zinc-400",
+      !player.alive ? "line-through text-zinc-400 dark:text-zinc-600" : "",
     ].join(" "), player.name)
 
     const delta = cardDeltas?.[idx]
-    const bumpColor = delta === "up" ? "#34d399" : delta === "down" ? "#ef4444" : "#34d399"
+    const bumpColor =
+      delta === "up"
+        ? MECHANIC.handDeltaGain
+        : delta === "down"
+          ? MECHANIC.handDeltaLoss
+          : MECHANIC.handDeltaGain
     const countEl = el("div", [
       "text-lg font-bold font-mono inline-flex items-center gap-0.5",
-      isMe ? "text-sky-400" : "text-zinc-500",
+      isMe ? "text-sky-600 dark:text-sky-400" : "text-zinc-600 dark:text-zinc-500",
     ].join(" "))
 
     const countSpan = el("span", "inline-block", `${player.card_count}`)
@@ -339,7 +382,10 @@ export function createRenderer(container) {
       challengeCard && !frozen ? cardIdentityKey(challengeCard) : null
     const challengeGlowColor =
       challengeKey != null && challengerIdx != null ? playerFill(challengerIdx) : null
-    const outer = el("div", "relative w-full h-full flex flex-col items-center justify-center rounded-2xl transition-all duration-150 px-4 py-2")
+    const outer = el(
+      "div",
+      "relative w-full h-full flex flex-col items-center justify-center rounded-2xl transition-all duration-150 px-4 py-2 bg-zinc-200/40 dark:bg-zinc-800/35",
+    )
     outer.id = "pile-drop-zone"
     outer.style.cssText = "touch-action: manipulation;"
 
@@ -445,8 +491,9 @@ export function createRenderer(container) {
       })
 
       if (pile.size > n) {
-        const hiddenBadge = el("div",
-          "absolute flex items-center justify-center rounded-full bg-zinc-800/90 border border-zinc-600 text-xs font-bold text-zinc-400 font-mono"
+        const hiddenBadge = el(
+          "div",
+          "absolute flex items-center justify-center rounded-full bg-white/95 border border-zinc-300 text-xs font-bold text-zinc-600 font-mono dark:bg-zinc-700/95 dark:border-zinc-500/60 dark:text-zinc-200",
         )
         hiddenBadge.style.cssText = `left: 0px; top: ${Math.round(fanH / 2 - 12)}px; z-index: 0; width: 24px; height: 24px;`
         hiddenBadge.textContent = `+${pile.size - n}`
@@ -455,10 +502,11 @@ export function createRenderer(container) {
 
       outer.appendChild(fan)
     } else {
-      const empty = el("div",
-        "w-full flex-1 rounded-xl border-2 border-dashed border-zinc-700 flex items-center justify-center"
+      const empty = el(
+        "div",
+        "w-full flex-1 rounded-xl border-2 border-dashed border-zinc-400 dark:border-zinc-700 flex items-center justify-center",
       )
-      empty.innerHTML = `<span class="text-zinc-600 text-sm">Drop card here</span>`
+      empty.innerHTML = `<span class="text-zinc-500 dark:text-zinc-600 text-sm">Drop card here</span>`
       outer.appendChild(empty)
     }
 
@@ -467,7 +515,7 @@ export function createRenderer(container) {
 
   /** Pile count / penalty + status: frozen = next round; challenge slap window = round ending (slaps still legal). */
   const HISTORY_STACK_CLASS =
-    "w-full max-h-[8rem] overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-1 space-y-1"
+    "w-full max-h-[8rem] overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-1 space-y-1 text-zinc-700 dark:text-zinc-300"
 
   function ensureHistoryInfoStack(historySlot) {
     let stack = historySlot.querySelector("#history-info-stack")
@@ -489,16 +537,20 @@ export function createRenderer(container) {
     const wrap = el("div", "w-full flex flex-col items-center gap-1")
 
     const displaySize = frozenPile ? frozenPile.size : game.pile.size
-    const statsRow = el("div", "grid grid-cols-[1fr_auto_1fr] items-center gap-x-1.5 text-[13px] leading-tight text-zinc-500 w-full")
+    const statsRow = el(
+      "div",
+      "grid grid-cols-[1fr_auto_1fr] items-center gap-x-1.5 text-[13px] leading-tight text-zinc-600 dark:text-zinc-500 w-full",
+    )
 
     const countEl = el("span", "font-mono tabular-nums text-right", `${displaySize} in pile`)
     countEl.id = "pile-count-label"
     statsRow.appendChild(countEl)
 
-    const sep = el("span", "text-zinc-600 select-none", "\u00b7")
+    const sep = el("span", "text-zinc-400 dark:text-zinc-600 select-none", "\u00b7")
     statsRow.appendChild(sep)
 
-    const penaltyColor = game.penalty_count > 0 ? "text-rose-400/70" : "text-zinc-500"
+    const penaltyColor =
+      game.penalty_count > 0 ? "text-rose-600/90 dark:text-rose-400/70" : "text-zinc-600 dark:text-zinc-500"
     const penalty = el("span", `font-mono tabular-nums text-left ${penaltyColor}`, `${game.penalty_count} in penalty`)
     statsRow.appendChild(penalty)
     wrap.appendChild(statsRow)
@@ -507,10 +559,10 @@ export function createRenderer(container) {
       const c = 94.248
       const freezeRow = el("div", "flex items-center justify-center gap-1.5 flex-wrap pointer-events-none")
       freezeRow.innerHTML = `
-        <span class="text-[11px] font-mono font-medium text-amber-200/90">Next round in</span>
-        <span id="slap-freeze-countdown" class="text-[11px] font-mono font-semibold tabular-nums text-zinc-200">\u2014</span>
-        <svg class="h-4 w-4 -rotate-90 shrink-0 text-amber-400/70" viewBox="0 0 36 36" aria-hidden="true">
-          <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.5" class="text-zinc-700/50" opacity="0.4"/>
+        <span class="text-[11px] font-mono font-medium text-sky-700 dark:text-sky-200/90">Next round in</span>
+        <span id="slap-freeze-countdown" class="text-[11px] font-mono font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">\u2014</span>
+        <svg class="h-4 w-4 -rotate-90 shrink-0 text-sky-600 dark:text-sky-400/70" viewBox="0 0 36 36" aria-hidden="true">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.5" class="text-zinc-300 dark:text-zinc-700/50" opacity="0.5"/>
           <circle id="slap-freeze-ring" cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="0" data-circ="${c}"/>
         </svg>
       `
@@ -524,33 +576,31 @@ export function createRenderer(container) {
 
       if (pendingResolve) {
         const c = 94.248
-        challengeRow.classList.add("flex", "flex-col", "items-center", "gap-0.5")
         challengeRow.innerHTML = `
-          <span class="inline-flex items-center gap-1.5 flex-wrap justify-center text-[11px] font-mono text-amber-200/90">
+          <span class="inline-flex items-center gap-1.5 flex-wrap justify-center text-[11px] font-mono text-sky-800 dark:text-sky-200/90">
             <span class="font-semibold tracking-tight">Round ending</span>
-            <span id="slap-window-countdown" class="font-semibold tabular-nums text-zinc-200">\u2014</span>
-            <svg id="slap-window-ring-wrap" class="h-4 w-4 -rotate-90 shrink-0 text-amber-400/60" viewBox="0 0 36 36" aria-hidden="true">
-              <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.5" class="text-zinc-700/50" opacity="0.4"/>
+            <span id="slap-window-countdown" class="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">\u2014</span>
+            <svg id="slap-window-ring-wrap" class="h-4 w-4 -rotate-90 shrink-0 text-sky-600 dark:text-sky-400/60" viewBox="0 0 36 36" aria-hidden="true">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.5" class="text-zinc-300 dark:text-zinc-700/50" opacity="0.5"/>
               <circle id="slap-window-ring" cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="0" data-circ="${c}"/>
             </svg>
           </span>
-          <span class="text-[10px] font-medium text-zinc-500 text-center leading-tight px-1">Slap still allowed</span>
         `
       } else {
         challengeRow.innerHTML = `
-          <span class="inline-flex items-center gap-1 text-[11px] font-mono text-amber-200/75">
-            <span class="font-medium text-amber-300/70">${name}</span>
-            <span class="text-zinc-400/90">${card}</span>
-            <span class="text-zinc-600/80">&middot;</span>
-            <span class="font-medium text-zinc-300">${game.chances}</span>
-            <span class="text-zinc-600/80">left</span>
+          <span class="inline-flex items-center gap-1 text-[11px] font-mono text-violet-900 dark:text-violet-200/80">
+            <span class="font-medium text-violet-700 dark:text-violet-300/75">${name}</span>
+            <span class="text-zinc-600 dark:text-zinc-400/90">${card}</span>
+            <span class="text-zinc-400 dark:text-zinc-600/80">&middot;</span>
+            <span class="font-medium text-zinc-800 dark:text-zinc-300">${game.chances}</span>
+            <span class="text-zinc-500 dark:text-zinc-600/80">left</span>
           </span>
         `
       }
       wrap.appendChild(challengeRow)
     } else {
       const hint = el("div", "text-center pointer-events-none")
-      hint.innerHTML = `<span class="text-[11px] text-zinc-600 font-medium">Double-tap to slap</span>`
+      hint.innerHTML = `<span class="text-[11px] text-zinc-600 dark:text-zinc-600 font-medium">Double-tap to slap</span>`
       wrap.appendChild(hint)
     }
 
@@ -565,17 +615,17 @@ export function createRenderer(container) {
     const currentPlayer = game.players[game.current_player_idx]
     const canPlay = myTurn && alive && !cooldown && !pendingChallenge
 
+    const wrap = el("div", "flex flex-col items-center gap-1.5 w-full max-w-[min(100%,18rem)]")
+
+    if (!alive) {
+      wrap.appendChild(el("div", "text-sm text-zinc-600 dark:text-zinc-600 font-semibold", "Eliminated"))
+      return wrap
+    }
+
     const myColor = playerFill(player.idx)
     const turnColor = playerFill(currentPlayer.idx)
     const deckColor = myTurn ? myColor : turnColor
     const deckActive = myTurn && alive
-
-    const wrap = el("div", "flex flex-col items-center gap-1.5 w-full max-w-[min(100%,18rem)]")
-
-    if (!alive) {
-      wrap.appendChild(el("div", "text-sm text-zinc-600 font-semibold", "Eliminated"))
-      return wrap
-    }
 
     const deckWrap = el("div", "relative scale-[0.86] origin-bottom")
 
@@ -610,10 +660,10 @@ export function createRenderer(container) {
       status.style.color = myColor
       status.innerHTML = `<span class="inline-flex items-center gap-0.5"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/></svg>Drag to play</span>`
     } else if (myTurn && pendingChallenge) {
-      status.classList.add("text-zinc-500")
+      status.classList.add("text-zinc-600", "dark:text-zinc-500")
       status.textContent = "Challenge resolving\u2026"
     } else {
-      status.classList.add("text-zinc-500")
+      status.classList.add("text-zinc-600", "dark:text-zinc-500")
       status.textContent = `${currentPlayer.name}\u2019s turn`
     }
     wrap.appendChild(status)
@@ -624,24 +674,27 @@ export function createRenderer(container) {
   function renderGameOver(game) {
     const wrap = el("div", "flex-1 flex flex-col items-center justify-center gap-4 text-center")
     wrap.innerHTML = `
-      <div class="text-5xl font-black tracking-tight text-emerald-400">Game Over</div>
-      <div class="text-xl text-zinc-200">
-        <span class="font-bold text-white">${game.winner}</span> wins!
+      <div class="text-5xl font-black tracking-tight text-sky-600 dark:text-sky-300">Game Over</div>
+      <div class="text-xl text-zinc-700 dark:text-zinc-200">
+        <span class="font-bold text-zinc-900 dark:text-white">${game.winner}</span> wins!
       </div>
-      <div class="text-sm text-zinc-500">This game will close in 2 minutes.</div>
+      <div class="text-sm text-zinc-600 dark:text-zinc-500">This game will close in 2 minutes.</div>
     `
-    const backBtn = el("a",
-      "rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white px-6 py-2.5 font-semibold transition-all",
-      "Back to Lobby")
+    const backBtn = el(
+      "a",
+      "rounded-lg bg-sky-600 hover:bg-sky-500 dark:bg-sky-700 dark:hover:bg-sky-600 text-white px-6 py-2.5 font-semibold transition-all",
+      "Back to Lobby",
+    )
     backBtn.id = "back-to-lobby-btn"
     wrap.appendChild(backBtn)
     return wrap
   }
 
+  /** Event flash panel: neutral chrome; seat hue only on icon + name. */
   function renderEventFlashInner(flash, game) {
     const winnerIdx = flash.winner_idx
     const winner = winnerIdx != null && game ? game.players[winnerIdx] : null
-    const c = winnerIdx != null ? playerFill(winnerIdx) : "#a1a1aa"
+    const identityColor = winnerIdx != null ? playerFill(winnerIdx) : null
     const winnerName = winner ? winner.name : "?"
     const pileSize = flash.pile_size
 
@@ -652,31 +705,42 @@ export function createRenderer(container) {
           ? [flash.challenge_card]
           : []
 
-    const mix = (pct) => `color-mix(in srgb, ${c} ${pct}%, transparent)`
-
     const inner = el(
       "div",
-      "pointer-events-none w-full max-w-[min(28rem,calc(100vw-1.25rem))] mx-auto rounded-xl backdrop-blur-md flex flex-col gap-2 px-3 py-2.5 sm:px-4 sm:py-3",
+      [
+        "pointer-events-none w-full max-w-[min(28rem,calc(100vw-1.25rem))] mx-auto rounded-xl backdrop-blur-md flex flex-col gap-2 px-3 py-2.5 sm:px-4 sm:py-3",
+        "border shadow-xl",
+        "bg-white/95 border-zinc-200/90 shadow-zinc-900/10",
+        "dark:bg-[linear-gradient(135deg,rgba(39,39,42,0.95),rgba(24,24,27,0.96))] dark:border-zinc-500/40 dark:shadow-zinc-900/25",
+      ].join(" "),
     )
     inner.id = "event-flash-inner"
-    inner.style.cssText = [
-      `background:linear-gradient(135deg, color-mix(in srgb, ${c} 18%, rgba(12,12,12,0.92)), color-mix(in srgb, ${c} 8%, rgba(8,8,8,0.9)))`,
-      `border:1px solid ${mix(22)}`,
-      `box-shadow:0 0 28px 6px ${mix(10)}, 0 12px 32px rgba(0,0,0,0.42)`,
-    ].join(";")
 
     const headerRow = el("div", "flex items-start gap-3 w-full min-w-0")
 
-    const iconWrap = el("div", "shrink-0 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden")
-    iconWrap.style.cssText = `background:${mix(15)};border:1.5px solid ${mix(35)};`
-    if (winner) {
-      iconWrap.appendChild(createPlayerAvatarSvg(winner, c, "w-6 h-6"))
+    const iconWrap = el(
+      "div",
+      "shrink-0 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-zinc-200/90 dark:bg-zinc-700/90",
+    )
+    if (identityColor) {
+      iconWrap.style.border = `1.5px solid ${identityColor}`
+      iconWrap.style.boxShadow = `0 0 0 1px ${hexWithAlpha(identityColor, 0.25)}`
+    } else {
+      iconWrap.style.border = "1.5px solid rgba(113,113,122,0.55)"
+    }
+    if (winner && identityColor) {
+      iconWrap.appendChild(createPlayerAvatarSvg(winner, identityColor, "w-6 h-6"))
     }
     headerRow.appendChild(iconWrap)
 
     const textBlock = el("div", "flex-1 min-w-0 flex flex-col gap-1")
-    const nameLine = el("div", "text-[15px] sm:text-base font-semibold text-white/92 leading-snug truncate")
+    const nameLine = el("div", "text-[15px] sm:text-base font-semibold leading-snug truncate")
     nameLine.textContent = winnerName
+    if (identityColor) {
+      nameLine.style.color = identityColor
+    } else {
+      nameLine.classList.add("text-zinc-900", "dark:text-zinc-100")
+    }
     textBlock.appendChild(nameLine)
 
     let headline = ""
@@ -690,12 +754,18 @@ export function createRenderer(container) {
     }
 
     if (headline) {
-      const hl = el("div", "text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-zinc-400/95")
+      const hl = el(
+        "div",
+        "text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400/95",
+      )
       hl.textContent = headline
       textBlock.appendChild(hl)
     }
     if (subline) {
-      const sl = el("div", "text-xs sm:text-[13px] leading-snug text-zinc-200/90 font-medium")
+      const sl = el(
+        "div",
+        "text-xs sm:text-[13px] leading-snug text-zinc-700 dark:text-zinc-200/90 font-medium",
+      )
       sl.textContent = subline
       textBlock.appendChild(sl)
     }
@@ -706,11 +776,13 @@ export function createRenderer(container) {
       const badgeCol = el("div", "shrink-0 flex flex-col items-end gap-0.5 pt-0.5")
       const badge = el(
         "span",
-        "text-sm font-mono font-bold tabular-nums rounded-lg px-2.5 py-1 leading-none",
+        "text-sm font-mono font-bold tabular-nums rounded-lg px-2.5 py-1 leading-none bg-zinc-200/95 text-zinc-900 border border-zinc-300/90 shadow-sm dark:bg-zinc-600/90 dark:text-zinc-50 dark:border-zinc-500/50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
       )
-      badge.style.cssText = `background:${mix(16)};color:${c};box-shadow:inset 0 1px 0 ${mix(28)};`
       badge.textContent = `+${pileSize}`
-      const badgeHint = el("span", "text-[9px] font-medium uppercase tracking-wide text-zinc-500")
+      const badgeHint = el(
+        "span",
+        "text-[9px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500",
+      )
       badgeHint.textContent = "cards"
       badgeCol.appendChild(badge)
       badgeCol.appendChild(badgeHint)
@@ -720,8 +792,14 @@ export function createRenderer(container) {
     inner.appendChild(headerRow)
 
     if (flashCards.length > 0) {
-      const strip = el("div", "w-full flex flex-col gap-1.5 pt-1 border-t border-white/[0.08]")
-      const stripLabel = el("div", "text-[10px] font-medium uppercase tracking-wide text-zinc-500 text-center sm:text-left")
+      const strip = el(
+        "div",
+        "w-full flex flex-col gap-1.5 pt-1 border-t border-zinc-200/90 dark:border-white/[0.08]",
+      )
+      const stripLabel = el(
+        "div",
+        "text-[10px] font-medium uppercase tracking-wide text-zinc-600 dark:text-zinc-500 text-center sm:text-left",
+      )
       stripLabel.textContent = flash.type === "slap" ? "Winning pattern" : "Challenge card"
       strip.appendChild(stripLabel)
       appendEventFlashMiniCards(strip, flashCards)
@@ -733,6 +811,10 @@ export function createRenderer(container) {
 
   function getLeaveButton() {
     return rootEl?.querySelector("#leave-game-btn")
+  }
+
+  function getThemeButton() {
+    return rootEl?.querySelector("#game-theme-btn")
   }
 
   function getBackToLobbyButton() {
@@ -766,6 +848,7 @@ export function createRenderer(container) {
     render,
     syncPlayerTurnGlow,
     getLeaveButton,
+    getThemeButton,
     getBackToLobbyButton,
     getPileZone,
     getPileSlapFeedback,

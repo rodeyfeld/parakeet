@@ -39,16 +39,18 @@ defmodule ParakeetWeb.DenLive do
     ~H"""
     <Layouts.app flash={@flash}>
       <div class="max-w-2xl mx-auto space-y-8">
-        <div class="flex items-center justify-between">
-          <h1 class="text-3xl font-bold tracking-tight">Tables</h1>
-          <div class="flex items-center gap-3">
-            <span class="text-sm text-zinc-400">
-              Playing as <span class="font-semibold text-white">{@player_name}</span>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h1 class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Tables</h1>
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm text-zinc-600 dark:text-zinc-400">
+              Playing as
+              <span class="font-semibold text-zinc-900 dark:text-white">{@player_name}</span>
             </span>
+            <Layouts.theme_toggle />
             <.link
               href={~p"/session"}
               method="delete"
-              class="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+              class="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors"
             >
               Change name
             </.link>

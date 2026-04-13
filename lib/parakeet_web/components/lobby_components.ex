@@ -4,8 +4,8 @@ defmodule ParakeetWeb.LobbyComponents do
   def create_join_forms(assigns) do
     ~H"""
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-4">
-        <h2 class="text-lg font-semibold">Create a Table</h2>
+      <div class="rounded-xl border border-zinc-200 bg-white/90 p-6 shadow-sm space-y-4 dark:border-zinc-500/55 dark:bg-zinc-800/70 dark:shadow-none">
+        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Create a Table</h2>
         <.form for={%{}} phx-submit="create_table" id="create-table-form" class="space-y-3">
           <.input
             type="text"
@@ -23,8 +23,8 @@ defmodule ParakeetWeb.LobbyComponents do
         </.form>
       </div>
 
-      <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-4">
-        <h2 class="text-lg font-semibold">Join a Table</h2>
+      <div class="rounded-xl border border-zinc-200 bg-white/90 p-6 shadow-sm space-y-4 dark:border-zinc-500/55 dark:bg-zinc-800/70 dark:shadow-none">
+        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Join a Table</h2>
         <.form for={%{}} phx-submit="join_table" id="join-table-form" class="space-y-3">
           <.input
             type="text"
@@ -32,11 +32,11 @@ defmodule ParakeetWeb.LobbyComponents do
             value=""
             label="Table Code"
             placeholder="ABC123"
-            class="font-mono tracking-widest uppercase text-center text-lg rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+            class="font-mono tracking-widest uppercase text-center text-lg rounded-lg border border-zinc-300 bg-white px-3 py-2 w-full text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dark:border-zinc-500/60 dark:bg-zinc-700/85 dark:text-zinc-50"
           />
           <button
             type="submit"
-            class="w-full rounded-lg border border-zinc-600 hover:border-zinc-400 text-white px-4 py-2.5 font-semibold transition-all hover:scale-[1.02] active:scale-95"
+            class="w-full rounded-lg border border-zinc-400 bg-white text-zinc-900 hover:border-emerald-500 hover:bg-emerald-50/80 px-4 py-2.5 font-semibold transition-all hover:scale-[1.02] active:scale-95 dark:border-zinc-500 dark:bg-zinc-800/40 dark:text-zinc-50 dark:hover:border-zinc-400 dark:hover:bg-zinc-700/55"
           >
             Join Table
           </button>
@@ -50,19 +50,19 @@ defmodule ParakeetWeb.LobbyComponents do
 
   def open_tables(assigns) do
     ~H"""
-    <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-4">
+    <div class="rounded-xl border border-zinc-200 bg-white/90 p-6 shadow-sm space-y-4 dark:border-zinc-500/55 dark:bg-zinc-800/70 dark:shadow-none">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Open Tables</h2>
+        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Open Tables</h2>
         <button
           phx-click="refresh_tables"
           id="refresh-tables-btn"
-          class="text-sm text-zinc-400 hover:text-white transition-colors"
+          class="text-sm text-zinc-500 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:text-white"
         >
           Refresh
         </button>
       </div>
       <%= if @tables == [] do %>
-        <p class="text-sm text-zinc-500">No tables open yet.</p>
+        <p class="text-sm text-zinc-600 dark:text-zinc-500">No tables open yet.</p>
       <% else %>
         <div class="space-y-2">
           <.table_row :for={table <- @tables} table={table} />
@@ -76,23 +76,23 @@ defmodule ParakeetWeb.LobbyComponents do
 
   def table_row(assigns) do
     ~H"""
-    <div class="flex items-center justify-between rounded-lg bg-zinc-800/60 border border-zinc-700/50 px-4 py-3">
+    <div class="flex items-center justify-between rounded-lg bg-zinc-50 border border-zinc-200/80 px-4 py-3 dark:bg-zinc-800/65 dark:border-zinc-500/45">
       <div>
-        <div class="font-medium">{@table.name}</div>
-        <div class="text-sm text-zinc-400">
+        <div class="font-medium text-zinc-900 dark:text-zinc-100">{@table.name}</div>
+        <div class="text-sm text-zinc-600 dark:text-zinc-400">
           {length(@table.player_names)} players · <span class="font-mono">{@table.code}</span>
         </div>
       </div>
       <%= cond do %>
         <% @table.game_status == :finished -> %>
-          <span class="text-xs text-zinc-500 font-medium">Finished</span>
+          <span class="text-xs text-zinc-500 font-medium dark:text-zinc-500">Finished</span>
         <% @table.game_status == :running -> %>
-          <span class="text-xs text-amber-400 font-medium">In Game</span>
+          <span class="text-xs text-amber-600 font-medium dark:text-amber-400">In Game</span>
         <% true -> %>
           <button
             phx-click="join_table"
             phx-value-code={@table.code}
-            class="rounded-lg border border-zinc-600 hover:border-zinc-400 text-sm text-white px-3 py-1.5 font-medium transition-all hover:scale-105 active:scale-95"
+            class="rounded-lg border border-zinc-400 hover:border-emerald-500 text-sm text-zinc-800 px-3 py-1.5 font-medium transition-all hover:scale-105 active:scale-95 dark:border-zinc-500 dark:text-zinc-50 dark:hover:border-emerald-500"
           >
             Join
           </button>

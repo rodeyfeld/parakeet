@@ -20,17 +20,21 @@ defmodule ParakeetWeb.DenComponents do
       |> assign(:ai_d, @ai_avatar_d)
 
     ~H"""
-    <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 p-6 space-y-5">
+    <div class="rounded-xl border border-zinc-200 bg-white/90 p-6 shadow-sm space-y-5 dark:border-zinc-500/55 dark:bg-zinc-800/70 dark:shadow-none">
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold">{@table.name}</h2>
-        <div class="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 border border-zinc-700">
-          <span class="text-xs uppercase tracking-wider text-zinc-400">Code</span>
-          <span class="font-mono font-bold text-lg tracking-widest">{@table.code}</span>
+        <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{@table.name}</h2>
+        <div class="flex items-center gap-2 rounded-lg bg-zinc-100 px-3 py-1.5 border border-zinc-200 dark:bg-zinc-700/80 dark:border-zinc-500/50">
+          <span class="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Code</span>
+          <span class="font-mono font-bold text-lg tracking-widest text-zinc-900 dark:text-white">
+            {@table.code}
+          </span>
         </div>
       </div>
 
       <div class="space-y-2">
-        <h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider">Players</h3>
+        <h3 class="text-sm font-medium text-zinc-600 uppercase tracking-wider dark:text-zinc-400">
+          Players
+        </h3>
         <div class="flex flex-wrap gap-2">
           <span
             :for={name <- @table.player_names}
@@ -38,7 +42,8 @@ defmodule ParakeetWeb.DenComponents do
               "rounded-full border px-4 py-1.5 text-sm font-medium inline-flex items-center gap-1.5",
               if(name in @bot_names,
                 do: "bg-violet-900/40 border-violet-600/50 text-violet-300",
-                else: "bg-zinc-800 border-zinc-700"
+                else:
+                  "bg-zinc-100 border-zinc-200 text-zinc-900 dark:bg-zinc-700/75 dark:border-zinc-500/50 dark:text-zinc-50"
               )
             ]}
           >
@@ -69,7 +74,7 @@ defmodule ParakeetWeb.DenComponents do
             <button
               phx-click="add_bot"
               id="add-bot-btn"
-              class="rounded-full border border-dashed border-zinc-600 px-4 py-1.5 text-sm text-zinc-400 hover:text-violet-300 hover:border-violet-500 transition-all inline-flex items-center gap-1.5"
+              class="rounded-full border border-dashed border-zinc-400 px-4 py-1.5 text-sm text-zinc-600 hover:text-violet-600 hover:border-violet-500 transition-all inline-flex items-center gap-1.5 dark:border-zinc-500 dark:text-zinc-300 dark:hover:text-violet-300"
             >
               <.icon name="hero-cpu-chip-mini" class="w-3.5 h-3.5" /> Add Bot
             </button>
@@ -86,7 +91,7 @@ defmodule ParakeetWeb.DenComponents do
               "rounded-lg px-6 py-2.5 font-semibold transition-all",
               if(length(@table.player_names) >= 2,
                 do: "bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-105 active:scale-95",
-                else: "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                else: "bg-zinc-200 text-zinc-500 cursor-not-allowed dark:bg-zinc-800/80"
               )
             ]}
             disabled={length(@table.player_names) < 2}
@@ -95,7 +100,7 @@ defmodule ParakeetWeb.DenComponents do
           </button>
         <% else %>
           <%= if @table.game_status == :finished do %>
-            <div class="rounded-lg bg-zinc-800 border border-zinc-600 px-4 py-2.5 text-sm text-zinc-400 font-medium">
+            <div class="rounded-lg bg-zinc-100 border border-zinc-300 px-4 py-2.5 text-sm text-zinc-600 font-medium dark:bg-zinc-800/80 dark:border-zinc-500/50 dark:text-zinc-300">
               Game finished
             </div>
           <% else %>
@@ -107,7 +112,7 @@ defmodule ParakeetWeb.DenComponents do
         <button
           phx-click="leave_table"
           id="leave-table-btn"
-          class="rounded-lg border border-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-500 transition-all ml-auto"
+          class="rounded-lg border border-zinc-400 px-5 py-2.5 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:border-zinc-600 transition-all ml-auto dark:border-zinc-500 dark:text-zinc-200 dark:hover:text-white dark:hover:border-zinc-400"
         >
           Leave
         </button>
@@ -120,20 +125,22 @@ defmodule ParakeetWeb.DenComponents do
 
   def active_table_banner(assigns) do
     ~H"""
-    <div class="rounded-xl border border-emerald-700/50 bg-emerald-900/20 p-5 space-y-3">
+    <div class="rounded-xl border border-emerald-300/80 bg-emerald-50/90 p-5 shadow-sm space-y-3 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:shadow-none">
       <div class="flex items-center justify-between">
         <div class="space-y-1">
-          <div class="text-xs uppercase tracking-wider text-emerald-400 font-semibold">
+          <div class="text-xs uppercase tracking-wider text-emerald-700 font-semibold dark:text-emerald-400">
             Active Table
           </div>
-          <h2 class="text-lg font-bold">{@table.name}</h2>
+          <h2 class="text-lg font-bold text-zinc-900 dark:text-white">{@table.name}</h2>
         </div>
-        <div class="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-1.5 border border-zinc-700">
-          <span class="text-xs uppercase tracking-wider text-zinc-400">Code</span>
-          <span class="font-mono font-bold tracking-widest">{@table.code}</span>
+        <div class="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 border border-emerald-200 dark:bg-zinc-700/85 dark:border-zinc-500/45">
+          <span class="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Code</span>
+          <span class="font-mono font-bold tracking-widest text-zinc-900 dark:text-white">
+            {@table.code}
+          </span>
         </div>
       </div>
-      <div class="text-sm text-zinc-400">
+      <div class="text-sm text-zinc-600 dark:text-zinc-400">
         {length(@table.player_names)} players: {Enum.join(@table.player_names, ", ")}
       </div>
       <div class="flex gap-3">
@@ -147,7 +154,7 @@ defmodule ParakeetWeb.DenComponents do
         <button
           phx-click="leave_table"
           id="leave-active-table-btn"
-          class="rounded-lg border border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:border-zinc-500 transition-all"
+          class="rounded-lg border border-zinc-400 px-5 py-2 text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:border-zinc-600 transition-all dark:border-zinc-500 dark:text-zinc-200 dark:hover:text-white dark:hover:border-zinc-400"
         >
           Leave
         </button>

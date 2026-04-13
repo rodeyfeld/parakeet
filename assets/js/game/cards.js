@@ -1,4 +1,7 @@
 import { createPlayerAvatarSvg } from "./avatars"
+import { MECHANIC, playerFill } from "./theme"
+
+export { playerFill } from "./theme"
 
 const SUIT_SYMBOLS = {
   hearts: "♥",
@@ -13,8 +16,6 @@ const SUIT_COLORS_CARD = {
   clubs: "text-zinc-800",
   spades: "text-zinc-800",
 }
-
-const PLAYER_FILLS = ["#34d399", "#38bdf8", "#fbbf24", "#fb7185", "#a78bfa"]
 
 export function suitSymbol(suit) {
   return SUIT_SYMBOLS[suit] || ""
@@ -47,10 +48,6 @@ export function cardIdentityKey(card) {
   return `${card.face}|${card.suit}|${card.value ?? ""}`
 }
 
-export function playerFill(idx) {
-  return PLAYER_FILLS[idx] || "#a1a1aa"
-}
-
 export function createCardElement(card) {
   const colorClass = suitColorCard(card.suit)
   const face = formatFace(card)
@@ -77,19 +74,19 @@ export function createCardElement(card) {
 /**
  * @param {object} [player] — when set (your deck), shows avatar + count inside the frame
  * @param {object} [opts]
- * @param {string} [opts.color] — hex colour for the card chrome (defaults to player fill or #34d399)
+ * @param {string} [opts.color] — hex colour for the card chrome (defaults to player fill or MECHANIC.neutralDeck)
  * @param {boolean} [opts.active] — true = saturated + glow; false = dim
  */
 export function createCardBackElement(player, opts = {}) {
-  const c = opts.color || (player ? playerFill(player.idx) : "#34d399")
+  const c = opts.color || (player ? playerFill(player.idx) : MECHANIC.neutralDeck)
   const on = !!opts.active
 
   const el = document.createElement("div")
   el.className = "w-[100px] h-[140px] rounded-xl shadow-lg relative select-none transition-[background,box-shadow] duration-300"
 
-  const bgFrom = `color-mix(in srgb, ${c} ${on ? 30 : 16}%, #0c0c0c)`
-  const bgVia  = `color-mix(in srgb, ${c} ${on ? 22 : 10}%, #0a0a0a)`
-  const bgTo   = `color-mix(in srgb, ${c} ${on ? 16 : 6}%, #080808)`
+  const bgFrom = `color-mix(in srgb, ${c} ${on ? 30 : 16}%, #0c1410)`
+  const bgVia  = `color-mix(in srgb, ${c} ${on ? 22 : 10}%, #0a1209)`
+  const bgTo   = `color-mix(in srgb, ${c} ${on ? 16 : 6}%, #091007)`
   el.style.background = `linear-gradient(to bottom right, ${bgFrom}, ${bgVia}, ${bgTo})`
   if (on) el.style.boxShadow = `0 0 20px 3px ${c}35, 0 0 6px 1px ${c}20`
 
@@ -112,7 +109,7 @@ export function createCardBackElement(player, opts = {}) {
   center.className = "absolute inset-0 flex items-center justify-center pointer-events-none"
   const ring = document.createElement("div")
   ring.className = "w-10 h-10 rounded-full flex items-center justify-center shadow-inner"
-  ring.style.cssText = `border:2px solid ${on ? c + '45' : c + '20'};background:color-mix(in srgb, ${c} 6%, #080808);`
+  ring.style.cssText = `border:2px solid ${on ? c + "45" : c + "20"};background:color-mix(in srgb, ${c} 6%, #091007);`
   if (player) {
     ring.appendChild(createPlayerAvatarSvg(player, playerFill(player.idx), "w-6 h-6"))
   } else {

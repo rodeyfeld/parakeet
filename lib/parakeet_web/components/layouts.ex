@@ -35,7 +35,7 @@ defmodule ParakeetWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <main class="px-4 py-10 sm:px-6 lg:px-8">
+    <main class="min-h-[100dvh] px-4 py-10 sm:px-6 lg:px-8 bg-zinc-100 text-zinc-900 transition-colors duration-200 dark:bg-[rgb(8_13_10)] dark:text-zinc-100">
       <div class="mx-auto max-w-2xl space-y-4">
         {render_slot(@inner_block)}
       </div>
@@ -95,31 +95,38 @@ defmodule ParakeetWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
+    <div
+      class="theme-toggle-track relative flex flex-row items-center rounded-full border-2 border-zinc-300/90 bg-zinc-200/90 p-0.5 dark:border-zinc-500/70 dark:bg-zinc-700/85"
+      role="group"
+      aria-label={gettext("Color theme")}
+    >
+      <div class="theme-toggle-knob" aria-hidden="true"></div>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        type="button"
+        class="relative z-[1] flex w-1/3 cursor-pointer justify-center p-2 text-zinc-600 hover:text-zinc-900 dark:text-zinc-200 dark:hover:text-white"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
       >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-80 hover:opacity-100" />
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        type="button"
+        class="relative z-[1] flex w-1/3 cursor-pointer justify-center p-2 text-zinc-600 hover:text-zinc-900 dark:text-zinc-200 dark:hover:text-white"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
       >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-sun-micro" class="size-4 opacity-80 hover:opacity-100" />
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        type="button"
+        class="relative z-[1] flex w-1/3 cursor-pointer justify-center p-2 text-zinc-600 hover:text-zinc-900 dark:text-zinc-200 dark:hover:text-white"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
       >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-moon-micro" class="size-4 opacity-80 hover:opacity-100" />
       </button>
     </div>
     """

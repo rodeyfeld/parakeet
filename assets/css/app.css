@@ -96,8 +96,47 @@
 @custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 
-/* Use the data attribute for dark mode  */
+/* Dark mode: resolved effective theme on <html data-theme="dark"> */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Solid bluish-black (slate-950) behind the app — matches main in dark mode */
+html[data-theme="dark"] {
+  min-height: 100dvh;
+  background-color: rgb(8 13 10);
+}
+
+/* Theme switcher knob (preference is data-theme-pref; effective theme is data-theme) */
+.theme-toggle-track {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.theme-toggle-knob {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: 33.333%;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  pointer-events: none;
+  transition: left 0.2s ease;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.95);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+html[data-theme-pref="light"] .theme-toggle-knob {
+  left: 33.333%;
+}
+html[data-theme-pref="dark"] .theme-toggle-knob {
+  left: 66.666%;
+}
+html[data-theme="dark"] .theme-toggle-knob {
+  border-color: rgb(113 113 122 / 0.55);
+  background: rgb(82 82 91 / 0.92);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
+}
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
@@ -122,6 +161,6 @@
 
 @keyframes count-bump {
   0% { transform: scale(1); }
-  30% { transform: scale(1.5); color: var(--bump-color, #34d399); }
+  30% { transform: scale(1.5); color: var(--bump-color, #4ade80); }
   100% { transform: scale(1); }
 }

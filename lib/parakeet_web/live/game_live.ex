@@ -60,7 +60,7 @@ defmodule ParakeetWeb.GameLive do
         data-token={@game_token}
       >
         <div class="flex items-center justify-center min-h-[60vh]">
-          <span class="text-zinc-500">Connecting to game...</span>
+          <span class="text-zinc-600 dark:text-zinc-400">Connecting to game...</span>
         </div>
       </div>
     </Layouts.app>

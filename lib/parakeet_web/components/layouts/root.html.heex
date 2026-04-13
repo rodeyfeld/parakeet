@@ -12,21 +12,36 @@
     </script>
     <script>
       (() => {
-        const setTheme = (theme) => {
-          if (theme === "system") {
-            localStorage.removeItem("phx:theme");
-            document.documentElement.removeAttribute("data-theme");
-          } else {
-            localStorage.setItem("phx:theme", theme);
-            document.documentElement.setAttribute("data-theme", theme);
-          }
+        const STORAGE = "phx:theme";
+        const mq = window.matchMedia("(prefers-color-scheme: dark)");
+        window.parakeetApplyTheme = function parakeetApplyTheme() {
+          const raw = localStorage.getItem(STORAGE);
+          const pref = raw === "light" || raw === "dark" || raw === "system" ? raw : "system";
+          let effective;
+          if (pref === "light") effective = "light";
+          else if (pref === "dark") effective = "dark";
+          else effective = mq.matches ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", effective);
+          document.documentElement.setAttribute("data-theme-pref", pref);
+          window.dispatchEvent(new Event("parakeet-theme-applied"));
         };
-        if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem("phx:theme") || "system");
-        }
-        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
-        
-        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+        window.parakeetApplyTheme();
+        mq.addEventListener("change", () => {
+          if ((localStorage.getItem(STORAGE) || "system") === "system") {
+            window.parakeetApplyTheme();
+          }
+        });
+        window.addEventListener("storage", (e) => {
+          if (e.key === STORAGE) window.parakeetApplyTheme();
+        });
+        window.addEventListener("phx:set-theme", (e) => {
+          const btn = e.target && e.target.closest && e.target.closest("[data-phx-theme]");
+          const theme = btn && btn.dataset && btn.dataset.phxTheme;
+          if (theme !== "system" && theme !== "light" && theme !== "dark") return;
+          if (theme === "system") localStorage.removeItem(STORAGE);
+          else localStorage.setItem(STORAGE, theme);
+          window.parakeetApplyTheme();
+        });
       })();
     </script>
   </head>
