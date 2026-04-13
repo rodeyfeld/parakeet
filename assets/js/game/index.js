@@ -169,7 +169,11 @@ const Game = {
             const overlayText = flash.label || "SLAP"
             animate.pileOverlayText(pileZone, { text: overlayText, color: accent })
           }
-          // challenge_win: headline + card live in event-flash strip only (no pile overlay duplicate)
+
+          if (flash.type === "challenge_win") {
+            if (pileZone) animate.origamiBirdFlyAcross(pileZone, { color: accent })
+            return
+          }
 
           if (pileZone) {
             animate.featherBurst(pileZone, {

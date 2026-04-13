@@ -1,9 +1,90 @@
 import gsap from "gsap"
 import { featherBurst } from "./feathers"
 import { MECHANIC } from "./theme"
+import {
+  ORIGAMI_BIRD_PATH_D,
+  ORIGAMI_BIRD_ROTATION_EXTRA_DEG,
+  ORIGAMI_BIRD_ROTATION_OFFSET_DEG,
+  ORIGAMI_BIRD_VIEWBOX,
+} from "./origami-bird"
+
+function createOrigamiBirdSvg(fill) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  svg.setAttribute("viewBox", ORIGAMI_BIRD_VIEWBOX)
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+  svg.setAttribute("aria-hidden", "true")
+  svg.style.overflow = "visible"
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+  path.setAttribute("d", ORIGAMI_BIRD_PATH_D)
+  path.setAttribute("fill", fill || "currentColor")
+  svg.appendChild(path)
+  return svg
+}
 
 export const animate = {
   featherBurst,
+
+  /**
+   * Origami bird flies across the pile zone (bottom-left → upper-right). Used for challenge wins.
+   * @param {HTMLElement} anchorEl — pile drop zone
+   * @param {{ color?: string }} [opts]
+   */
+  origamiBirdFlyAcross(anchorEl, { color = "#a1a1aa" } = {}) {
+    if (!anchorEl) return
+    const rect = anchorEl.getBoundingClientRect()
+    if (rect.width === 0 && rect.height === 0) return
+
+    const overlay = document.createElement("div")
+    overlay.style.cssText =
+      `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;pointer-events:none;z-index:60;overflow:visible`
+
+    const wrap = document.createElement("div")
+    const W = 76
+    wrap.style.cssText =
+      `position:absolute;width:${W}px;height:${W}px;will-change:transform,opacity`
+
+    const svg = createOrigamiBirdSvg(color)
+    svg.style.width = `${W}px`
+    svg.style.height = `${W}px`
+    svg.style.filter = "drop-shadow(0 3px 12px rgba(0,0,0,0.35))"
+    wrap.appendChild(svg)
+    overlay.appendChild(wrap)
+    document.body.appendChild(overlay)
+
+    const x0 = rect.width * 0.06
+    const y0 = rect.height * 0.82
+    const x1 = rect.width * 0.9
+    const y1 = rect.height * 0.08
+
+    const vx = x1 - x0
+    const vy = y1 - y0
+    // Screen y increases downward — use -vy so “up-right” matches atan2 in visual space
+    const flightDeg = (Math.atan2(-vy, vx) * 180) / Math.PI
+    const rotation =
+      flightDeg + ORIGAMI_BIRD_ROTATION_OFFSET_DEG + ORIGAMI_BIRD_ROTATION_EXTRA_DEG
+
+    gsap.set(wrap, {
+      left: x0,
+      top: y0,
+      x: -W / 2,
+      y: -W / 2,
+      rotation,
+      opacity: 1,
+      scale: 0.92,
+    })
+
+    const tl = gsap.timeline({ onComplete: () => overlay.remove() })
+    tl.to(wrap, {
+      left: x1,
+      top: y1,
+      scale: 1,
+      duration: .7,
+      ease: "sine.inOut",
+    })
+    tl.to(wrap, { opacity: 0, duration: 0.22, ease: "sine.out" }, "-=0.14")
+
+    return tl
+  },
 
   cardPlay(cardEl) {
     if (!cardEl) return

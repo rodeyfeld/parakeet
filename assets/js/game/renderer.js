@@ -23,7 +23,7 @@ function hexWithAlpha(hex, alpha01) {
 }
 
 /** Scale for face cards in the event-flash strip (full card is 140×196 CSS px). */
-const EVENT_FLASH_CARD_SCALE = 0.68
+const EVENT_FLASH_CARD_SCALE = 0.72
 
 /**
  * Readable miniatures for the event flash (slap pattern / challenge card).
@@ -34,7 +34,7 @@ function appendEventFlashMiniCards(container, cards) {
   const scale = EVENT_FLASH_CARD_SCALE
   const w = Math.round(140 * scale)
   const h = Math.round(196 * scale)
-  const row = el("div", "flex items-end justify-center gap-2.5 sm:gap-3 flex-wrap w-full")
+  const row = el("div", "flex items-end justify-center gap-3 sm:gap-3.5 flex-wrap w-full")
   for (const card of cards) {
     const holder = el(
       "div",
@@ -114,17 +114,39 @@ export function createRenderer(container) {
     )
     const pileWrap = el("div", "relative w-full flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden", "", "pile-section")
     const pileSlot = el("div", "flex-1 min-h-0 min-w-0", "", "pile-slot")
+    pileWrap.appendChild(pileSlot)
+    gameArea.appendChild(pileWrap)
+
+    // Deck column: flash + deck share one grid cell (flash overlays deck slot); row height = max(flash, deck) → pile flex-1 yields slightly
+    const controlsBand = el(
+      "div",
+      "shrink-0 w-full flex justify-center px-1 sm:px-2",
+      "",
+      "controls-band",
+    )
+    const deckStack = el(
+      "div",
+      "grid grid-cols-1 grid-rows-1 place-items-stretch w-full max-w-[min(100%,18rem)] mx-auto min-h-0",
+      "",
+      "deck-stack",
+    )
     const pileFlashHost = el(
       "div",
-      "shrink-0 w-full overflow-hidden pointer-events-none flex justify-center px-3",
+      "col-start-1 row-start-1 z-20 w-full min-h-0 min-w-0 overflow-hidden pointer-events-none flex justify-center items-end self-stretch px-2 sm:px-2.5",
       "",
       "pile-event-flash-host",
     )
     pileFlashHost.style.height = "0px"
-    pileWrap.appendChild(pileFlashHost)
-    pileWrap.appendChild(pileSlot)
-    gameArea.appendChild(pileWrap)
-    gameArea.appendChild(el("div", "shrink-0 w-full flex justify-center pt-1.5 pb-0.5", "", "controls-slot"))
+    const controlsSlot = el(
+      "div",
+      "col-start-1 row-start-1 z-10 w-full min-w-0 flex justify-center self-end pt-1.5 pb-0.5",
+      "",
+      "controls-slot",
+    )
+    deckStack.appendChild(pileFlashHost)
+    deckStack.appendChild(controlsSlot)
+    controlsBand.appendChild(deckStack)
+    gameArea.appendChild(controlsBand)
     body.appendChild(gameArea)
 
     rootEl.appendChild(body)
@@ -708,7 +730,7 @@ export function createRenderer(container) {
     const inner = el(
       "div",
       [
-        "pointer-events-none w-full max-w-[min(28rem,calc(100vw-1.25rem))] mx-auto rounded-xl backdrop-blur-md flex flex-col gap-2 px-3 py-2.5 sm:px-4 sm:py-3",
+        "pointer-events-none w-full max-w-full mx-auto rounded-xl backdrop-blur-md flex flex-col gap-2 px-3 py-3 sm:px-4 sm:py-3.5",
         "border shadow-xl",
         "bg-white/95 border-zinc-200/90 shadow-zinc-900/10",
         "dark:bg-[linear-gradient(135deg,rgba(39,39,42,0.95),rgba(24,24,27,0.96))] dark:border-zinc-500/40 dark:shadow-zinc-900/25",
@@ -716,11 +738,11 @@ export function createRenderer(container) {
     )
     inner.id = "event-flash-inner"
 
-    const headerRow = el("div", "flex items-start gap-3 w-full min-w-0")
+    const headerRow = el("div", "flex items-start gap-3 sm:gap-3.5 w-full min-w-0")
 
     const iconWrap = el(
       "div",
-      "shrink-0 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-zinc-200/90 dark:bg-zinc-700/90",
+      "shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center overflow-hidden bg-zinc-200/90 dark:bg-zinc-700/90",
     )
     if (identityColor) {
       iconWrap.style.border = `1.5px solid ${identityColor}`
@@ -729,12 +751,12 @@ export function createRenderer(container) {
       iconWrap.style.border = "1.5px solid rgba(113,113,122,0.55)"
     }
     if (winner && identityColor) {
-      iconWrap.appendChild(createPlayerAvatarSvg(winner, identityColor, "w-6 h-6"))
+      iconWrap.appendChild(createPlayerAvatarSvg(winner, identityColor, "w-7 h-7 sm:w-8 sm:h-8"))
     }
     headerRow.appendChild(iconWrap)
 
-    const textBlock = el("div", "flex-1 min-w-0 flex flex-col gap-1")
-    const nameLine = el("div", "text-[15px] sm:text-base font-semibold leading-snug truncate")
+    const textBlock = el("div", "flex-1 min-w-0 flex flex-col gap-1 sm:gap-1.5")
+    const nameLine = el("div", "text-base sm:text-lg font-semibold leading-snug truncate")
     nameLine.textContent = winnerName
     if (identityColor) {
       nameLine.style.color = identityColor
@@ -756,7 +778,7 @@ export function createRenderer(container) {
     if (headline) {
       const hl = el(
         "div",
-        "text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400/95",
+        "text-xs sm:text-sm font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400/95",
       )
       hl.textContent = headline
       textBlock.appendChild(hl)
@@ -764,7 +786,7 @@ export function createRenderer(container) {
     if (subline) {
       const sl = el(
         "div",
-        "text-xs sm:text-[13px] leading-snug text-zinc-700 dark:text-zinc-200/90 font-medium",
+        "text-sm sm:text-[15px] leading-snug text-zinc-700 dark:text-zinc-200/90 font-medium",
       )
       sl.textContent = subline
       textBlock.appendChild(sl)
@@ -776,12 +798,12 @@ export function createRenderer(container) {
       const badgeCol = el("div", "shrink-0 flex flex-col items-end gap-0.5 pt-0.5")
       const badge = el(
         "span",
-        "text-sm font-mono font-bold tabular-nums rounded-lg px-2.5 py-1 leading-none bg-zinc-200/95 text-zinc-900 border border-zinc-300/90 shadow-sm dark:bg-zinc-600/90 dark:text-zinc-50 dark:border-zinc-500/50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "text-base sm:text-lg font-mono font-bold tabular-nums rounded-lg px-3 py-1.5 leading-none bg-zinc-200/95 text-zinc-900 border border-zinc-300/90 shadow-sm dark:bg-zinc-600/90 dark:text-zinc-50 dark:border-zinc-500/50 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
       )
       badge.textContent = `+${pileSize}`
       const badgeHint = el(
         "span",
-        "text-[9px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500",
+        "text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500",
       )
       badgeHint.textContent = "cards"
       badgeCol.appendChild(badge)
@@ -794,11 +816,11 @@ export function createRenderer(container) {
     if (flashCards.length > 0) {
       const strip = el(
         "div",
-        "w-full flex flex-col gap-1.5 pt-1 border-t border-zinc-200/90 dark:border-white/[0.08]",
+        "w-full flex flex-col gap-2 pt-2 border-t border-zinc-200/90 dark:border-white/[0.08]",
       )
       const stripLabel = el(
         "div",
-        "text-[10px] font-medium uppercase tracking-wide text-zinc-600 dark:text-zinc-500 text-center sm:text-left",
+        "text-[11px] sm:text-xs font-medium uppercase tracking-wide text-zinc-600 dark:text-zinc-500 text-center sm:text-left",
       )
       stripLabel.textContent = flash.type === "slap" ? "Winning pattern" : "Challenge card"
       strip.appendChild(stripLabel)
