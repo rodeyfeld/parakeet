@@ -2,7 +2,7 @@ defmodule ParakeetWeb.GameChannel do
   use ParakeetWeb, :channel
 
   alias Parakeet.Den.{PitBoss, Table}
-  alias Parakeet.Game.{Engine, CardStack}
+  alias Parakeet.Game.{Card, CardStack, Engine, Slap}
 
   @impl true
   def join("game:" <> code, _params, socket) do
@@ -106,6 +106,7 @@ defmodule ParakeetWeb.GameChannel do
       log: "── New round ── #{winner.name} collects the pile",
       event_flash: %{
         type: "challenge_win",
+        label: "Challenge",
         detail: "#{winner.name} wins #{pile_size} cards",
         winner_idx: game.current_player_idx,
         challenge_card: serialize_card(challenge_card),
@@ -180,6 +181,7 @@ defmodule ParakeetWeb.GameChannel do
       {:noreply, socket}
     else
       old_count = CardStack.count(player.hand)
+      old_pile = game.pile
       old_pile_size = CardStack.count(game.pile) + CardStack.count(game.penalty_pile)
       new_game = Engine.slap(socket.assigns.engine_pid, idx)
       slapped_player = Enum.at(new_game.players, idx)
@@ -187,14 +189,21 @@ defmodule ParakeetWeb.GameChannel do
 
       {msgs, event_flash} =
         if new_count > old_count do
-          label = slap_label(new_game.slap_type)
+          slap_t = new_game.slap_type
+          label = slap_label(slap_t)
+
+          slap_cards =
+            old_pile
+            |> Slap.pattern_cards(slap_t)
+            |> Enum.map(&Card.to_client_map/1)
 
           flash = %{
             type: "slap",
             label: String.capitalize(label),
             detail: "#{player.name} wins #{old_pile_size} cards",
             winner_idx: idx,
-            pile_size: old_pile_size
+            pile_size: old_pile_size,
+            slap_cards: slap_cards
           }
 
           {[
@@ -282,13 +291,7 @@ defmodule ParakeetWeb.GameChannel do
 
   defp serialize_card(nil), do: nil
 
-  defp serialize_card(card) do
-    %{
-      face: card.face,
-      suit: card.suit,
-      value: card.value
-    }
-  end
+  defp serialize_card(card), do: Card.to_client_map(card)
 
   defp serialize_event_flash(nil), do: nil
 
@@ -301,11 +304,13 @@ defmodule ParakeetWeb.GameChannel do
       pile_size: flash[:pile_size]
     }
 
-    case flash[:challenge_card] do
-      nil -> base
-      card -> Map.put(base, :challenge_card, card)
-    end
+    base
+    |> maybe_put(:challenge_card, flash[:challenge_card])
+    |> maybe_put(:slap_cards, flash[:slap_cards])
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, val), do: Map.put(map, key, val)
 
   # -- Helpers --
 

@@ -41,6 +41,12 @@ export function formatCard(card) {
   return `${formatFace(card)}${suitSymbol(card.suit)}`
 }
 
+/** Stable identity for comparing serialized pile / challenge cards. */
+export function cardIdentityKey(card) {
+  if (!card) return ""
+  return `${card.face}|${card.suit}|${card.value ?? ""}`
+}
+
 export function playerFill(idx) {
   return PLAYER_FILLS[idx] || "#a1a1aa"
 }

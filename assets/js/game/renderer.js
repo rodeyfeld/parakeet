@@ -1,11 +1,48 @@
 import gsap from "gsap"
-import { formatCard, playerFill, createCardElement, createCardBackElement } from "./cards"
+import {
+  cardIdentityKey,
+  formatCard,
+  playerFill,
+  createCardElement,
+  createCardBackElement,
+} from "./cards"
 import { createPlayerAvatarSvg } from "./avatars"
 import { animate } from "./animations"
 
 function eventFlashKey(flash) {
   if (!flash) return null
-  return `${flash.type}|${flash.label}|${flash.detail}`
+  const slapPart = flash.slap_cards?.map(cardIdentityKey).join("|") ?? ""
+  const ch = flash.challenge_card ? cardIdentityKey(flash.challenge_card) : ""
+  return `${flash.type}|${flash.label}|${flash.detail}|${slapPart}|${ch}`
+}
+
+/**
+ * Readable miniatures for the event flash (slap pattern / challenge card).
+ * Uses ~40% scale so pips stay legible; each card sits in a framed cell.
+ */
+function appendEventFlashMiniCards(container, cards) {
+  if (!cards || cards.length === 0) return
+  const scale = 0.4
+  const w = Math.round(140 * scale)
+  const h = Math.round(196 * scale)
+  const row = el("div", "flex items-end justify-center gap-2 sm:gap-2.5 flex-wrap w-full")
+  for (const card of cards) {
+    const holder = el(
+      "div",
+      "relative shrink-0 overflow-hidden rounded-lg bg-zinc-900/40 shadow-[0_6px_16px_rgba(0,0,0,0.45)] ring-1 ring-white/15",
+    )
+    holder.style.width = `${w}px`
+    holder.style.height = `${h}px`
+    const face = createCardElement(card)
+    face.style.position = "absolute"
+    face.style.left = "0"
+    face.style.top = "0"
+    face.style.transform = `scale(${scale})`
+    face.style.transformOrigin = "top left"
+    holder.appendChild(face)
+    row.appendChild(holder)
+  }
+  container.appendChild(row)
 }
 
 const TURN_GLOW_GREEN = "#34d399"
@@ -68,13 +105,13 @@ export function createRenderer(container) {
     const pileSlot = el("div", "flex-1 min-h-0 min-w-0", "", "pile-slot")
     const pileFlashHost = el(
       "div",
-      "absolute inset-x-0 top-0 z-20 pointer-events-none flex items-start justify-center px-3 pt-2",
+      "shrink-0 w-full overflow-hidden pointer-events-none flex justify-center px-3",
       "",
       "pile-event-flash-host",
     )
-    pileFlashHost.style.opacity = "0"
-    pileWrap.appendChild(pileSlot)
+    pileFlashHost.style.height = "0px"
     pileWrap.appendChild(pileFlashHost)
+    pileWrap.appendChild(pileSlot)
     gameArea.appendChild(pileWrap)
     gameArea.appendChild(el("div", "shrink-0 w-full flex justify-center pt-1.5 pb-0.5", "", "controls-slot"))
     body.appendChild(gameArea)
@@ -90,8 +127,12 @@ export function createRenderer(container) {
   }
 
   function pileKey(game) {
-    const top = game.pile.cards.map(c => `${c.card.face}-${c.card.suit}`).join(",")
-    return `${game.pile.size}:${top}`
+    const top = game.pile.cards.map(c => cardIdentityKey(c.card)).join(",")
+    const challengeGlow =
+      game.challenger_idx !== null && game.challenge_card
+        ? cardIdentityKey(game.challenge_card)
+        : "-"
+    return `${game.pile.size}:${top}:${challengeGlow}`
   }
 
   function render(state, options = {}) {
@@ -131,7 +172,9 @@ export function createRenderer(container) {
         prevPileKey = newPileKey
         const pileSlot = rootEl.querySelector("#pile-slot")
         pileSlot.innerHTML = ""
-        const { outer, topCardEl, pileEl } = renderPile(activePile, fp)
+        const challengeCard =
+          !fp && game.challenger_idx !== null ? game.challenge_card : null
+        const { outer, topCardEl, pileEl } = renderPile(activePile, fp, challengeCard)
         pileSlot.appendChild(outer)
         currentPileEl = pileEl
         refs.topCard = topCardEl
@@ -146,7 +189,6 @@ export function createRenderer(container) {
       const stack = ensureHistoryInfoStack(historySlot)
 
       stack.querySelector("#history-stats").replaceChildren(renderStatsRow(game, fp))
-      stack.querySelector("#history-challenge").replaceChildren(renderChallengeRow(game))
 
       const pileFlashHost = rootEl.querySelector("#pile-event-flash-host")
       if (nextFlashKey !== prevFlashKey) {
@@ -167,44 +209,38 @@ export function createRenderer(container) {
               const inner = pileFlashHost.querySelector("#event-flash-inner")
               if (!inner) return
 
+              pileFlashHost.style.height = "auto"
+              const naturalH = pileFlashHost.offsetHeight
+              pileFlashHost.style.height = "0px"
+
               const tl = gsap.timeline({
                 onComplete: () => {
                   flashTimeline = null
                   pileFlashHost.innerHTML = ""
-                  gsap.set(pileFlashHost, { opacity: 0 })
+                  pileFlashHost.style.height = "0px"
                 },
               })
 
-              gsap.set(pileFlashHost, { opacity: 1 })
-              gsap.set(inner, { opacity: 0, scale: 0.7, y: -12 })
+              tl.to(pileFlashHost, { height: naturalH, duration: 0.2, ease: "power2.out" })
+              tl.fromTo(inner,
+                { opacity: 0, y: -4 },
+                { opacity: 1, y: 0, duration: 0.15, ease: "power2.out" },
+                "<0.05",
+              )
 
-              tl.to(inner, {
-                opacity: 1, scale: 1, y: 0,
-                duration: 0.35, ease: "back.out(1.4)",
-              })
-
-              tl.to(inner, {
-                opacity: 0, scale: 0.85, y: -8,
-                duration: 0.4, ease: "power2.in",
-              }, "+=2.5")
+              tl.to(inner, { opacity: 0, y: -4, duration: 0.25, ease: "power2.in" }, "+=2.0")
+              tl.to(pileFlashHost, {
+                height: 0, duration: 0.2, ease: "power2.inOut",
+                onComplete: () => { pileFlashHost.innerHTML = "" },
+              }, "-=0.1")
 
               flashTimeline = tl
             })
           } else {
-            const inner = pileFlashHost.querySelector("#event-flash-inner")
-            if (inner) {
-              gsap.to(inner, {
-                opacity: 0, scale: 0.85, y: -8,
-                duration: 0.3, ease: "power2.in",
-                onComplete: () => {
-                  pileFlashHost.innerHTML = ""
-                  gsap.set(pileFlashHost, { opacity: 0 })
-                },
-              })
-            } else {
-              pileFlashHost.innerHTML = ""
-              gsap.set(pileFlashHost, { opacity: 0 })
-            }
+            gsap.to(pileFlashHost, {
+              height: 0, duration: 0.2, ease: "power2.inOut",
+              onComplete: () => { pileFlashHost.innerHTML = "" },
+            })
           }
         }
       }
@@ -294,8 +330,10 @@ export function createRenderer(container) {
     return wrapper
   }
 
-  function renderPile(pile, frozenInfo) {
+  function renderPile(pile, frozenInfo, challengeCard) {
     const frozen = !!frozenInfo
+    const challengeKey =
+      challengeCard && !frozen ? cardIdentityKey(challengeCard) : null
     const outer = el("div", "relative w-full h-full flex flex-col items-center justify-center rounded-2xl transition-all duration-150 px-4 py-2")
     outer.id = "pile-drop-zone"
     outer.style.cssText = "touch-action: manipulation;"
@@ -335,7 +373,14 @@ export function createRenderer(container) {
           `transform: rotate(${rot}deg);`,
           `transform-origin: center center;`,
         ].join(" ")
-        cardWrap.appendChild(createCardElement(ct.card))
+        const cardEl = createCardElement(ct.card)
+        if (challengeKey && cardIdentityKey(ct.card) === challengeKey) {
+          cardEl.style.boxShadow =
+            "0 0 18px 4px rgba(251, 191, 36, 0.42), 0 0 8px 2px rgba(245, 158, 11, 0.28)"
+          cardEl.style.transition = "box-shadow 0.35s ease"
+          cardEl.classList.add("ring-1", "ring-amber-400/35")
+        }
+        cardWrap.appendChild(cardEl)
         fan.appendChild(cardWrap)
         if (isTop) topCardEl = cardWrap
       })
@@ -358,30 +403,12 @@ export function createRenderer(container) {
       outer.appendChild(empty)
     }
 
-    if (frozen) {
-      const c = 94.248
-      const freezeRow = el("div", "flex items-center justify-center gap-1.5 mt-1")
-      freezeRow.innerHTML = `
-        <span class="text-[11px] font-mono font-medium text-amber-300/80">${frozenInfo.label}</span>
-        <svg class="h-4 w-4 -rotate-90 shrink-0 text-amber-400/70" viewBox="0 0 36 36" aria-hidden="true">
-          <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.5" class="text-zinc-700/50" opacity="0.4"/>
-          <circle id="slap-freeze-ring" cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="0" data-circ="${c}"/>
-        </svg>
-        <span id="slap-freeze-countdown" class="text-[9px] font-mono font-medium tabular-nums text-zinc-400">\u2014</span>
-      `
-      outer.appendChild(freezeRow)
-    } else {
-      const hint = el("div", "text-center pointer-events-none mt-1")
-      hint.innerHTML = `<span class="text-[11px] text-zinc-600 font-medium">Double-tap to slap</span>`
-      outer.appendChild(hint)
-    }
-
     return { outer, topCardEl, pileEl }
   }
 
-  /** Stats + challenge — round flash lives on #pile-event-flash-host so it does not push layout. */
+  /** Pile count / penalty + status: frozen = next round; challenge slap window = round ending (slaps still legal). */
   const HISTORY_STACK_CLASS =
-    "w-full max-h-[6rem] overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-1 space-y-1"
+    "w-full max-h-[8rem] overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-1 space-y-1"
 
   function ensureHistoryInfoStack(historySlot) {
     let stack = historySlot.querySelector("#history-info-stack")
@@ -389,19 +416,21 @@ export function createRenderer(container) {
       stack.className = HISTORY_STACK_CLASS
       const legacyFlash = stack.querySelector("#event-flash-host")
       if (legacyFlash) legacyFlash.remove()
+      stack.querySelector("#history-challenge")?.remove()
       return stack
     }
     historySlot.innerHTML = ""
     stack = el("div", HISTORY_STACK_CLASS, "", "history-info-stack")
-    stack.appendChild(el("div", "shrink-0", "", "history-stats"))
-    stack.appendChild(el("div", "shrink-0", "", "history-challenge"))
+    stack.appendChild(el("div", "shrink-0 w-full", "", "history-stats"))
     historySlot.appendChild(stack)
     return stack
   }
 
   function renderStatsRow(game, frozenPile) {
+    const wrap = el("div", "w-full flex flex-col items-center gap-1")
+
     const displaySize = frozenPile ? frozenPile.size : game.pile.size
-    const statsRow = el("div", "grid grid-cols-[1fr_auto_1fr] items-center gap-x-1.5 text-[13px] leading-tight text-zinc-500")
+    const statsRow = el("div", "grid grid-cols-[1fr_auto_1fr] items-center gap-x-1.5 text-[13px] leading-tight text-zinc-500 w-full")
 
     const countEl = el("span", "font-mono tabular-nums text-right", `${displaySize} in pile`)
     countEl.id = "pile-count-label"
@@ -413,32 +442,40 @@ export function createRenderer(container) {
     const penaltyColor = game.penalty_count > 0 ? "text-rose-400/70" : "text-zinc-500"
     const penalty = el("span", `font-mono tabular-nums text-left ${penaltyColor}`, `${game.penalty_count} in penalty`)
     statsRow.appendChild(penalty)
-    return statsRow
-  }
+    wrap.appendChild(statsRow)
 
-  function renderChallengeRow(game) {
-    const challengeRow = el("div", "relative flex items-center justify-center overflow-hidden")
-
-    if (game.challenger_idx !== null) {
-      challengeRow.classList.add("min-h-[1.1rem]")
+    if (frozenPile) {
+      const c = 94.248
+      const freezeRow = el("div", "flex items-center justify-center gap-1.5 flex-wrap pointer-events-none")
+      freezeRow.innerHTML = `
+        <span class="text-[11px] font-mono font-medium text-amber-200/90">Next round in</span>
+        <span id="slap-freeze-countdown" class="text-[11px] font-mono font-semibold tabular-nums text-zinc-200">\u2014</span>
+        <svg class="h-4 w-4 -rotate-90 shrink-0 text-amber-400/70" viewBox="0 0 36 36" aria-hidden="true">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.5" class="text-zinc-700/50" opacity="0.4"/>
+          <circle id="slap-freeze-ring" cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="0" data-circ="${c}"/>
+        </svg>
+      `
+      wrap.appendChild(freezeRow)
+    } else if (game.challenger_idx !== null) {
       const challenger = game.players[game.challenger_idx]
       const pendingResolve = game.chances === 0 && game.pile.size > 0
       const name = challenger?.name || "?"
       const card = formatCard(game.challenge_card)
+      const challengeRow = el("div", "relative flex items-center justify-center overflow-hidden min-h-[1.1rem] pointer-events-none")
 
       if (pendingResolve) {
         const c = 94.248
+        challengeRow.classList.add("flex", "flex-col", "items-center", "gap-0.5")
         challengeRow.innerHTML = `
-          <span class="inline-flex items-center gap-1 text-[11px] font-mono text-amber-200/75">
-            <span class="font-medium text-amber-300/70">${name}</span>
-            <span class="text-zinc-400/90">${card}</span>
-            <span class="text-zinc-500/80">&middot; done</span>
-            <svg id="slap-window-ring-wrap" class="h-4 w-4 -rotate-90 shrink-0 text-amber-400/50" viewBox="0 0 36 36" aria-hidden="true">
+          <span class="inline-flex items-center gap-1.5 flex-wrap justify-center text-[11px] font-mono text-amber-200/90">
+            <span class="font-semibold tracking-tight">Round ending</span>
+            <span id="slap-window-countdown" class="font-semibold tabular-nums text-zinc-200">\u2014</span>
+            <svg id="slap-window-ring-wrap" class="h-4 w-4 -rotate-90 shrink-0 text-amber-400/60" viewBox="0 0 36 36" aria-hidden="true">
               <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="2.5" class="text-zinc-700/50" opacity="0.4"/>
               <circle id="slap-window-ring" cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="0" data-circ="${c}"/>
             </svg>
-            <span id="slap-window-countdown" class="text-[9px] font-medium tabular-nums text-zinc-400">\u2014</span>
           </span>
+          <span class="text-[10px] font-medium text-zinc-500 text-center leading-tight px-1">Slap still allowed</span>
         `
       } else {
         challengeRow.innerHTML = `
@@ -451,9 +488,14 @@ export function createRenderer(container) {
           </span>
         `
       }
+      wrap.appendChild(challengeRow)
+    } else {
+      const hint = el("div", "text-center pointer-events-none")
+      hint.innerHTML = `<span class="text-[11px] text-zinc-600 font-medium">Double-tap to slap</span>`
+      wrap.appendChild(hint)
     }
 
-    return challengeRow
+    return wrap
   }
 
   function renderControls(game, cooldown) {
@@ -538,59 +580,93 @@ export function createRenderer(container) {
   }
 
   function renderEventFlashInner(flash, game) {
-    const isSlap = flash.type === "slap"
-    const isChallenge = flash.type === "challenge_win"
-
     const winnerIdx = flash.winner_idx
     const winner = winnerIdx != null && game ? game.players[winnerIdx] : null
     const c = winnerIdx != null ? playerFill(winnerIdx) : "#a1a1aa"
     const winnerName = winner ? winner.name : "?"
+    const pileSize = flash.pile_size
+
+    const flashCards =
+      flash.type === "slap" && flash.slap_cards?.length
+        ? flash.slap_cards
+        : flash.type === "challenge_win" && flash.challenge_card
+          ? [flash.challenge_card]
+          : []
 
     const mix = (pct) => `color-mix(in srgb, ${c} ${pct}%, transparent)`
 
-    const eyebrow = isSlap ? "Slap" : isChallenge ? "Challenge" : "Round"
-    const headline = flash.label || (isChallenge ? "Won" : "")
-    const pileSize = flash.pile_size
-
     const inner = el(
       "div",
-      "pointer-events-none w-full max-w-[min(20rem,calc(100vw-2rem))] mx-auto rounded-2xl backdrop-blur-xl flex items-center gap-3 px-4 py-3",
+      "pointer-events-none w-full max-w-[min(28rem,calc(100vw-1.25rem))] mx-auto rounded-xl backdrop-blur-md flex flex-col gap-2 px-3 py-2.5 sm:px-4 sm:py-3",
     )
     inner.id = "event-flash-inner"
     inner.style.cssText = [
-      `background:linear-gradient(135deg, color-mix(in srgb, ${c} 18%, #0c0c0c), color-mix(in srgb, ${c} 8%, #080808))`,
-      `border:1px solid ${mix(20)}`,
-      `box-shadow:0 0 30px 4px ${mix(10)}, 0 12px 32px rgba(0,0,0,0.4)`,
+      `background:linear-gradient(135deg, color-mix(in srgb, ${c} 18%, rgba(12,12,12,0.92)), color-mix(in srgb, ${c} 8%, rgba(8,8,8,0.9)))`,
+      `border:1px solid ${mix(22)}`,
+      `box-shadow:0 0 28px 6px ${mix(10)}, 0 12px 32px rgba(0,0,0,0.42)`,
     ].join(";")
 
+    const headerRow = el("div", "flex items-start gap-3 w-full min-w-0")
+
     const iconWrap = el("div", "shrink-0 w-10 h-10 rounded-full flex items-center justify-center overflow-hidden")
-    iconWrap.style.cssText = `background:${mix(15)};border:2px solid ${mix(35)};`
+    iconWrap.style.cssText = `background:${mix(15)};border:1.5px solid ${mix(35)};`
     if (winner) {
       iconWrap.appendChild(createPlayerAvatarSvg(winner, c, "w-6 h-6"))
     }
-    inner.appendChild(iconWrap)
+    headerRow.appendChild(iconWrap)
 
-    const text = el("div", "flex-1 min-w-0")
-    const pileBadge = pileSize != null
-      ? `<span class="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold rounded-full px-1.5 py-0.5" style="background:${mix(12)};color:${c}">${pileSize} cards</span>`
-      : ""
-    text.innerHTML = `
-      <div class="flex items-center gap-1.5 flex-wrap">
-        <span class="text-[9px] font-bold uppercase tracking-[0.18em]" style="color:${mix(70)}">${eyebrow}</span>
-        ${headline ? `<span class="text-sm font-bold text-white/90">${headline}</span>` : ""}
-        ${pileBadge}
-      </div>
-      <p class="text-xs text-white/55 leading-snug mt-0.5 truncate">${winnerName} wins the pile</p>
-    `
-    inner.appendChild(text)
+    const textBlock = el("div", "flex-1 min-w-0 flex flex-col gap-1")
+    const nameLine = el("div", "text-[15px] sm:text-base font-semibold text-white/92 leading-snug truncate")
+    nameLine.textContent = winnerName
+    textBlock.appendChild(nameLine)
 
-    if (isChallenge && flash.challenge_card) {
-      const cc = flash.challenge_card
-      const isRed = cc.suit === "hearts" || cc.suit === "diamonds"
-      const mini = el("div", "shrink-0 w-9 h-[3.25rem] rounded-lg bg-white flex flex-col items-center justify-center leading-none")
-      mini.style.cssText = "box-shadow:0 2px 8px rgba(0,0,0,0.3);"
-      mini.innerHTML = `<span class="text-sm font-bold ${isRed ? "text-red-600" : "text-zinc-800"}">${formatCard(cc)}</span>`
-      inner.appendChild(mini)
+    let headline = ""
+    let subline = ""
+    if (flash.type === "slap") {
+      headline = "Slap won"
+      subline = flash.label || "Valid slap"
+    } else if (flash.type === "challenge_win") {
+      headline = "Challenge won"
+      subline = flash.challenge_card ? formatCard(flash.challenge_card) : "Face-card challenge"
+    }
+
+    if (headline) {
+      const hl = el("div", "text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-zinc-400/95")
+      hl.textContent = headline
+      textBlock.appendChild(hl)
+    }
+    if (subline) {
+      const sl = el("div", "text-xs sm:text-[13px] leading-snug text-zinc-200/90 font-medium")
+      sl.textContent = subline
+      textBlock.appendChild(sl)
+    }
+
+    headerRow.appendChild(textBlock)
+
+    if (pileSize != null) {
+      const badgeCol = el("div", "shrink-0 flex flex-col items-end gap-0.5 pt-0.5")
+      const badge = el(
+        "span",
+        "text-sm font-mono font-bold tabular-nums rounded-lg px-2.5 py-1 leading-none",
+      )
+      badge.style.cssText = `background:${mix(16)};color:${c};box-shadow:inset 0 1px 0 ${mix(28)};`
+      badge.textContent = `+${pileSize}`
+      const badgeHint = el("span", "text-[9px] font-medium uppercase tracking-wide text-zinc-500")
+      badgeHint.textContent = "cards"
+      badgeCol.appendChild(badge)
+      badgeCol.appendChild(badgeHint)
+      headerRow.appendChild(badgeCol)
+    }
+
+    inner.appendChild(headerRow)
+
+    if (flashCards.length > 0) {
+      const strip = el("div", "w-full flex flex-col gap-1.5 pt-1 border-t border-white/[0.08]")
+      const stripLabel = el("div", "text-[10px] font-medium uppercase tracking-wide text-zinc-500 text-center sm:text-left")
+      stripLabel.textContent = flash.type === "slap" ? "Winning pattern" : "Challenge card"
+      strip.appendChild(stripLabel)
+      appendEventFlashMiniCards(strip, flashCards)
+      inner.appendChild(strip)
     }
 
     return inner

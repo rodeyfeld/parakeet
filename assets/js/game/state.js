@@ -5,7 +5,6 @@ export function createState(onChange) {
     eventFlash: null,
     eventFlashTimer: null,
     cooldown: false,
-    cooldownTimer: null,
     cardDeltas: {},
     frozenPile: null,
     _onChange: onChange || null,
@@ -13,8 +12,6 @@ export function createState(onChange) {
 }
 
 const EVENT_FLASH_MS = 3000
-const COOLDOWN_MS = 1500
-const SLAP_FREEZE_MS = 3000
 
 export function updateState(state, payload) {
   const oldGame = state.game
@@ -24,8 +21,11 @@ export function updateState(state, payload) {
     state.cardDeltas = computeCardDeltas(oldGame, newGame)
   }
 
+  const flash = payload.event_flash
+  const pileWon = flash && (flash.type === "slap" || flash.type === "challenge_win")
+
   if (
-    payload.event_flash?.type === "slap" &&
+    pileWon &&
     oldGame &&
     oldGame.pile.size > 0 &&
     newGame.pile.size === 0
@@ -33,9 +33,8 @@ export function updateState(state, payload) {
     state.frozenPile = {
       cards: oldGame.pile.cards,
       size: oldGame.pile.size,
-      label: payload.event_flash.label,
-      endsAt: Date.now() + SLAP_FREEZE_MS,
-      durationMs: SLAP_FREEZE_MS,
+      endsAt: Date.now() + EVENT_FLASH_MS,
+      durationMs: EVENT_FLASH_MS,
     }
   }
 
@@ -49,8 +48,8 @@ export function updateState(state, payload) {
     state.log.push(payload.log)
   }
 
-  if (payload.event_flash) {
-    setEventFlash(state, payload.event_flash)
+  if (flash) {
+    setEventFlash(state, flash)
   }
 
   return state
@@ -66,13 +65,9 @@ function setEventFlash(state, flash) {
   state.eventFlashTimer = setTimeout(() => {
     state.eventFlash = null
     state.frozenPile = null
-    if (state._onChange) state._onChange()
-  }, EVENT_FLASH_MS)
-
-  state.cooldownTimer = setTimeout(() => {
     state.cooldown = false
     if (state._onChange) state._onChange()
-  }, COOLDOWN_MS)
+  }, EVENT_FLASH_MS)
 }
 
 function computeCardDeltas(oldGame, newGame) {

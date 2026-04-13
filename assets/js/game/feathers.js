@@ -1,9 +1,4 @@
-import gsap from "gsap"
-
-/**
- * Small quill for explosion particles (viewBox 0 0 24 40).
- */
-export const FEATHER_SHARD_PATH = "M12 2 C4 14 4 26 12 38 C20 26 20 14 12 2 Z"
+const SHARD = "M12 2 C4 14 4 26 12 38 C20 26 20 14 12 2 Z"
 
 function parseHex(hex) {
   const h = hex.replace("#", "").trim()
@@ -33,7 +28,6 @@ function toHex({ r, g, b }) {
   return `#${[r, g, b].map((x) => Math.max(0, Math.min(255, x)).toString(16).padStart(2, "0")).join("")}`
 }
 
-/** Several feather tints from one player accent color. */
 export function paletteFromAccent(hex) {
   const rgb = parseHex(hex)
   const white = { r: 255, g: 255, b: 255 }
@@ -51,12 +45,31 @@ export function paletteFromAccent(hex) {
 
 const DEFAULT_PALETTE = ["#fffbeb", "#fef3c7", "#fde68a", "#fcd34d", "#fbbf24", "#f59e0b", "#fef08a", "#e7e5e4"]
 
-/**
- * Radial explosion from the center of `anchorEl`: feathers burst outward with independent
- * travel and spin speeds (rotation uses its own duration / linear ease).
- *
- * Pass `baseColor` (hex) to tint feathers to a player; omit for default gold mix.
- */
+const stampCache = new Map()
+
+function bakeStamp(fill, size) {
+  const key = `${fill}:${size}`
+  if (stampCache.has(key)) return stampCache.get(key)
+
+  const w = size
+  const h = Math.round(size * 1.667)
+  const c = new OffscreenCanvas(w, h)
+  const ctx = c.getContext("2d")
+
+  const sx = w / 24
+  const sy = h / 40
+  ctx.scale(sx, sy)
+
+  const p = new Path2D(SHARD)
+  ctx.fillStyle = fill
+  ctx.fill(p)
+
+  stampCache.set(key, c)
+  return c
+}
+
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3) }
+
 export function featherBurst(anchorEl, opts = {}) {
   if (!anchorEl) return
 
@@ -72,119 +85,107 @@ export function featherBurst(anchorEl, opts = {}) {
     sizeMax = 36,
     baseColor = null,
     palette: paletteOpt = null,
-    /** Big finale burst when a slap resolves (server-confirmed outcome). */
     slapSurge = false,
   } = opts
 
-  const palette =
-    paletteOpt ||
-    (baseColor ? paletteFromAccent(baseColor) : DEFAULT_PALETTE)
-
-  const dramatic = Boolean(baseColor || paletteOpt)
-  let countEff = count
-  let distMaxEff = distanceMax
-  let distMinEff = distanceMin
-  let spinExtra = dramatic ? 360 : 0
-
-  if (slapSurge) {
-    distMaxEff *= 1.3
-    distMinEff *= 1.1
-    spinExtra += 540
-  }
+  const palette = paletteOpt || (baseColor ? paletteFromAccent(baseColor) : DEFAULT_PALETTE)
 
   const rect = anchorEl.getBoundingClientRect()
   if (rect.width === 0 && rect.height === 0) return
 
+  const dpr = window.devicePixelRatio || 1
   const cx = rect.left + rect.width / 2
   const cy = rect.top + rect.height / 2
 
-  const overlay = document.createElement("div")
-  overlay.dataset.featherBurst = ""
-  overlay.className = slapSurge
-    ? "fixed pointer-events-none inset-0 z-[70] overflow-visible"
-    : "fixed pointer-events-none inset-0 z-[60] overflow-visible"
-  document.body.appendChild(overlay)
+  const canvas = document.createElement("canvas")
+  canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:65;"
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  canvas.width = vw * dpr
+  canvas.height = vh * dpr
+  document.body.appendChild(canvas)
+  const ctx = canvas.getContext("2d")
+  ctx.scale(dpr, dpr)
 
-  const svgNS = "http://www.w3.org/2000/svg"
-  const shard = FEATHER_SHARD_PATH
+  const stampSize = 32
+  const stamps = palette.map((fill) => bakeStamp(fill, stampSize))
 
-  for (let i = 0; i < countEff; i++) {
+  const particles = []
+  for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2
-    const distBias = Math.pow(Math.random(), slapSurge ? 0.42 : dramatic ? 0.55 : 0.65)
-    const dist = distMinEff + distBias * (distMaxEff - distMinEff)
-    const endX = Math.cos(angle) * dist
-    const endY = Math.sin(angle) * dist
-
-    const rotStart = Math.random() * 360
-    const spinDir = Math.random() > 0.5 ? 1 : -1
-    const spinDegrees =
-      280 +
-      spinExtra +
-      Math.random() * (slapSurge ? 1680 : 1320 + spinExtra * 0.5)
-
-    const moveDuration = moveDurationMin + Math.random() * (moveDurationMax - moveDurationMin)
-    const spinDuration = spinDurationMin + Math.random() * (spinDurationMax - spinDurationMin)
-
+    const distBias = Math.pow(Math.random(), slapSurge ? 0.4 : 0.6)
+    const dist = distanceMin + distBias * (distanceMax - distanceMin)
     const size = sizeMin + Math.random() * (sizeMax - sizeMin)
-    const delay = Math.random() * 0.04
 
-    const holder = document.createElement("div")
-    holder.style.position = "fixed"
-    holder.style.left = `${cx}px`
-    holder.style.top = `${cy}px`
-    holder.style.width = `${size}px`
-    holder.style.height = `${size * 1.35}px`
-    holder.style.marginLeft = `${-size / 2}px`
-    holder.style.marginTop = `${(-size * 1.35) / 2}px`
-    holder.style.willChange = "transform, opacity"
-
-    const svg = document.createElementNS(svgNS, "svg")
-    svg.setAttribute("viewBox", "0 0 24 40")
-    svg.setAttribute("width", "100%")
-    svg.setAttribute("height", "100%")
-    svg.style.overflow = "visible"
-    if (slapSurge && baseColor) {
-      svg.style.filter = `drop-shadow(0 0 6px ${baseColor}88)`
-    }
-    if (Math.random() > 0.5) svg.style.transform = "scaleX(-1)"
-
-    const path = document.createElementNS(svgNS, "path")
-    path.setAttribute("d", shard)
-    path.setAttribute("fill", palette[i % palette.length])
-    path.setAttribute("opacity", slapSurge ? "1" : "0.94")
-    svg.appendChild(path)
-    holder.appendChild(svg)
-    overlay.appendChild(holder)
-
-    const endScale = 0.12 + Math.random() * 0.35
-
-    gsap.set(holder, {
-      x: 0, y: 0,
-      scale: 0.05 + Math.random() * 0.1,
-      opacity: 1,
-      rotation: rotStart,
-    })
-
-    gsap.to(holder, {
-      x: endX, y: endY, scale: endScale, opacity: 0,
-      duration: moveDuration, delay,
-      ease: "power3.out",
-    })
-
-    gsap.to(holder, {
-      rotation: rotStart + spinDir * spinDegrees,
-      duration: spinDuration,
-      delay,
-      ease: "none",
+    particles.push({
+      stamp: stamps[i % stamps.length],
+      cx, cy,
+      endX: Math.cos(angle) * dist,
+      endY: Math.sin(angle) * dist,
+      size,
+      rotStart: Math.random() * Math.PI * 2,
+      spinSpeed: (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random() * (slapSurge ? 12 : 8)),
+      duration: moveDurationMin + Math.random() * (moveDurationMax - moveDurationMin),
+      delay: Math.random() * 0.03,
+      flipX: Math.random() > 0.5,
+      startScale: 0.15 + Math.random() * 0.2,
+      endScale: 0.6 + Math.random() * 0.4,
+      glow: slapSurge && baseColor,
     })
   }
 
-  const cleanupPad = slapSurge ? 0.35 : 0.15
-  const cleanupMs = Math.max(
-    (moveDurationMax + 0.12) * 1000,
-    (spinDurationMax + 0.12) * 1000,
-  )
-  gsap.delayedCall(cleanupMs / 1000 + cleanupPad, () => overlay.remove())
+  const maxDuration = Math.max(...particles.map((p) => p.duration + p.delay))
+  const glowColor = baseColor ? `${baseColor}44` : null
+  let start = null
+  let frameId = null
 
-  return overlay
+  function frame(ts) {
+    if (start === null) start = ts
+    const elapsed = (ts - start) / 1000
+
+    if (elapsed >= maxDuration + 0.05) {
+      canvas.remove()
+      return
+    }
+
+    ctx.clearRect(0, 0, vw, vh)
+
+    if (glowColor && slapSurge) {
+      ctx.shadowColor = glowColor
+      ctx.shadowBlur = 10
+    }
+
+    for (const p of particles) {
+      const t = Math.min(1, Math.max(0, (elapsed - p.delay) / p.duration))
+      if (t <= 0) continue
+
+      const ease = easeOutCubic(t)
+      const x = p.cx + p.endX * ease
+      const y = p.cy + p.endY * ease
+
+      const scale = p.startScale + (p.endScale - p.startScale) * ease
+      const alpha = t < 0.15 ? t / 0.15 : 1 - Math.pow(Math.max(0, t - 0.3) / 0.7, 1.5)
+      if (alpha <= 0.01) continue
+
+      const rot = p.rotStart + p.spinSpeed * elapsed
+      const drawW = p.size * scale
+      const drawH = drawW * 1.667
+
+      ctx.save()
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha))
+      ctx.translate(x, y)
+      ctx.rotate(rot)
+      if (p.flipX) ctx.scale(-1, 1)
+      ctx.drawImage(p.stamp, -drawW / 2, -drawH / 2, drawW, drawH)
+      ctx.restore()
+    }
+
+    ctx.shadowColor = "transparent"
+    ctx.shadowBlur = 0
+
+    frameId = requestAnimationFrame(frame)
+  }
+
+  frameId = requestAnimationFrame(frame)
+  return canvas
 }

@@ -2,7 +2,7 @@ defmodule Parakeet.Game.Bot do
   use GenServer, restart: :temporary
   require Logger
 
-  alias Parakeet.Game.{Engine, CardStack, Slap}
+  alias Parakeet.Game.{Card, Engine, CardStack, Slap}
 
   @min_play_delay_ms 500
   @max_play_delay_ms 1500
@@ -116,6 +116,7 @@ defmodule Parakeet.Game.Bot do
 
     if state.game.status == :running and player.alive do
       old_count = CardStack.count(player.hand)
+      old_pile = state.game.pile
       game = Engine.slap(state.engine_pid, state.player_idx)
       slapped_player = Enum.at(game.players, state.player_idx)
       new_count = CardStack.count(slapped_player.hand)
@@ -124,14 +125,21 @@ defmodule Parakeet.Game.Bot do
 
       {msgs, event_flash} =
         if new_count > old_count do
-          label = slap_label(game.slap_type)
+          slap_t = game.slap_type
+          label = slap_label(slap_t)
+
+          slap_cards =
+            old_pile
+            |> Slap.pattern_cards(slap_t)
+            |> Enum.map(&Card.to_client_map/1)
 
           flash = %{
             type: :slap,
             label: String.capitalize(label),
             detail: "#{state.name} wins #{old_pile_size} cards",
             winner_idx: state.player_idx,
-            pile_size: old_pile_size
+            pile_size: old_pile_size,
+            slap_cards: slap_cards
           }
 
           {[

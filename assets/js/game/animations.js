@@ -27,34 +27,40 @@ export const animate = {
   },
 
   /**
-   * Angled text overlay centered on anchorEl (the pile zone).
-   * Bad slap → red "BAD SLAP"; good slap → green rule name (e.g. "SANDWICH").
-   * Appears with the feather burst and fades out with it.
+   * Big angled text splash centered on anchorEl (the pile zone).
+   * @param {string} opts.text — display text
+   * @param {string} opts.color — CSS color for the text
+   * @param {string} [opts.sub] — optional smaller subtitle below
    */
-  slapOverlayText(anchorEl, { text, good }) {
+  pileOverlayText(anchorEl, { text, color, sub }) {
     if (!anchorEl) return
     const rect = anchorEl.getBoundingClientRect()
     if (rect.width === 0 && rect.height === 0) return
 
     const overlay = document.createElement("div")
-    overlay.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;pointer-events:none;z-index:65;display:flex;align-items:center;justify-content:center;`
+    overlay.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;pointer-events:none;z-index:65;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;`
 
     const label = document.createElement("span")
-    const color = good ? "rgb(52 211 153)" : "rgb(248 113 113)"
-    const shadow = good
-      ? "0 0 20px rgba(52,211,153,0.6), 0 0 40px rgba(52,211,153,0.3), 0 2px 8px rgba(0,0,0,0.5)"
-      : "0 0 20px rgba(248,113,113,0.6), 0 0 40px rgba(248,113,113,0.3), 0 2px 8px rgba(0,0,0,0.5)"
-    label.style.cssText = `font-size:28px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:${color};text-shadow:${shadow};transform:rotate(-12deg);white-space:nowrap;user-select:none;`
+    const shadow = `0 0 20px ${color}99, 0 0 40px ${color}44, 0 2px 8px rgba(0,0,0,0.5)`
+    label.style.cssText = `font-size:32px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:${color};text-shadow:${shadow};transform:rotate(-12deg);white-space:nowrap;user-select:none;`
     label.textContent = text
     overlay.appendChild(label)
+
+    if (sub) {
+      const subEl = document.createElement("span")
+      subEl.style.cssText = `font-size:14px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${color}cc;text-shadow:0 1px 6px rgba(0,0,0,0.5);transform:rotate(-12deg);white-space:nowrap;user-select:none;`
+      subEl.textContent = sub
+      overlay.appendChild(subEl)
+    }
+
     document.body.appendChild(overlay)
 
     const tl = gsap.timeline({ onComplete: () => overlay.remove() })
-    tl.fromTo(label,
+    tl.fromTo(overlay,
       { opacity: 0, scale: 0.5 },
-      { opacity: 1, scale: 1, duration: 0.15, ease: "back.out(2)" },
+      { opacity: 1, scale: 1, duration: 0.15, ease: "back.out(2.2)" },
     )
-    tl.to(label, { opacity: 0, scale: 1.1, duration: 0.25, ease: "power2.in" }, "+=0.5")
+    tl.to(overlay, { opacity: 0, scale: 1.08, duration: 0.3, ease: "power2.in" }, "+=0.6")
 
     return tl
   },

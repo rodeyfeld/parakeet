@@ -20,4 +20,9 @@ defmodule Parakeet.Game.Card do
   def challenge_chances(%__MODULE__{face: :king}), do: 3
   def challenge_chances(%__MODULE__{face: :ace}), do: 4
   def challenge_chances(%__MODULE__{}), do: nil
+
+  @doc "Shape used in channel JSON for card previews (event flash, pile, etc.)."
+  def to_client_map(%__MODULE__{} = c) do
+    %{face: c.face, suit: c.suit, value: Map.get(c, :value)}
+  end
 end

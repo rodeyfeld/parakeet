@@ -37,4 +37,20 @@ defmodule Parakeet.Game.Slap do
 
   defp adds_to_ten?([top, second | _]), do: top.value + second.value == 10
   defp adds_to_ten?(_), do: false
+
+  @doc """
+  Top-of-pile cards that formed the valid slap (for UI). Order is top-first (most recent play first).
+  """
+  @spec pattern_cards(CardStack.t(), slap_type()) :: [Card.t()]
+  def pattern_cards(%CardStack{cards: cards}, slap_type)
+      when slap_type in [:doubles, :queen_king, :add_to_ten] do
+    Enum.take(cards, 2)
+  end
+
+  def pattern_cards(%CardStack{cards: cards}, slap_type)
+      when slap_type in [:sandwich, :three_in_order] do
+    Enum.take(cards, 3)
+  end
+
+  def pattern_cards(_, _), do: []
 end
