@@ -153,6 +153,8 @@ const Game = {
           }
           if (flash.type === "slap") {
             audio.slapHit()
+          } else if (flash.type === "challenge_win") {
+            audio.challengeWin()
           } else {
             audio.pileWin()
           }

@@ -27,6 +27,8 @@ const SOUND_DEFS = {
   cardPlay: { src: ["/audio/card_flip.mp3"], volume: 0.45, rate: 1.22 },
   /** Cards scooped / pile won — same clip used for shuffle + win UI paths */
   pileWin: { src: ["/audio/pile_shuffle.mp3"], volume: 0.28 },
+  /** Face-card challenge resolved in challenger's favor (birds taking off) */
+  challengeWin: { src: ["/audio/challenge_win.mp3"], volume: 0.32 },
   /** Slap / bush-cut style hit */
   slapHit: { src: ["/audio/slap_hit.mp3"], volume: 0.52 },
 }
@@ -63,4 +65,5 @@ export const audio = {
   cardPlay() { this.play("cardPlay") },
   slapHit() { this.play("slapHit") },
   pileWin() { this.play("pileWin") },
+  challengeWin() { this.play("challengeWin") },
 }
