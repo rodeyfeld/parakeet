@@ -733,7 +733,7 @@ export function createRenderer(container) {
         "pointer-events-none w-full max-w-full mx-auto rounded-xl backdrop-blur-md flex flex-col gap-2 px-3 py-3 sm:px-4 sm:py-3.5",
         "border shadow-xl",
         "bg-white/95 border-zinc-200/90 shadow-zinc-900/10",
-        "dark:bg-[linear-gradient(135deg,rgba(39,39,42,0.95),rgba(24,24,27,0.96))] dark:border-zinc-500/40 dark:shadow-zinc-900/25",
+        "dark:bg-zinc-800/95 dark:border-zinc-500/40 dark:shadow-zinc-900/25",
       ].join(" "),
     )
     inner.id = "event-flash-inner"

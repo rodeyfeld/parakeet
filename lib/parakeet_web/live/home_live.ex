@@ -38,7 +38,7 @@ defmodule ParakeetWeb.HomeLive do
           />
           <button
             type="submit"
-            class="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white px-6 py-3 text-lg font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-900/20 dark:shadow-emerald-950/40"
+            class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 text-lg font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-900/20 dark:shadow-emerald-950/40"
           >
             Play
           </button>

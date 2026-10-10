@@ -84,10 +84,7 @@ export function createCardBackElement(player, opts = {}) {
   const el = document.createElement("div")
   el.className = "w-[100px] h-[140px] rounded-xl shadow-lg relative select-none transition-[background,box-shadow] duration-300"
 
-  const bgFrom = `color-mix(in srgb, ${c} ${on ? 30 : 16}%, #0c1410)`
-  const bgVia  = `color-mix(in srgb, ${c} ${on ? 22 : 10}%, #0a1209)`
-  const bgTo   = `color-mix(in srgb, ${c} ${on ? 16 : 6}%, #091007)`
-  el.style.background = `linear-gradient(to bottom right, ${bgFrom}, ${bgVia}, ${bgTo})`
+  el.style.background = `color-mix(in srgb, ${c} ${on ? 22 : 10}%, #0a1209)`
   if (on) el.style.boxShadow = `0 0 20px 3px ${c}35, 0 0 6px 1px ${c}20`
 
   const border1 = on ? `${c}45` : `${c}18`
