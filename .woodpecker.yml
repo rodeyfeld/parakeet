@@ -13,7 +13,7 @@ steps:
       repo: schematics.pinwheel.fan/rodeyfeld/parakeet
       auto_tag: true
       cache_images:
-        - edrodefeld/parakeet:buildcache
+        - schematics.pinwheel.fan/rodeyfeld/parakeet:buildcache
       <<: *docker_creds
     when:
       - event: [push, manual]
